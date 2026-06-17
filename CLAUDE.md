@@ -99,13 +99,13 @@ Todos los endpoints reciben POST con `Authorization: Bearer <ID token de Google>
 
 - **Sin backend propio:** toda la lógica de negocio vive en n8n. El frontend solo consume y muestra.
 - **staleTime: Infinity + gcTime: Infinity + localStorage persister:** los datos no se refrescan solos y sobreviven page reloads; hay botón manual "Refresh" para evitar llamadas innecesarias a n8n.
-- **Filtrado 100% client-side:** la API lista devuelve todos los referrals del unit seleccionado; el filtrado por texto, estado y fecha se hace en el frontend.
+- **Filtrado 100% client-side:** la API lista devuelve los referrals del unit seleccionado (⚠️ cap server-side de `limit: 200`); el filtrado por texto, estado y fecha se hace en el frontend sobre esos datos.
 - **Paginación client-side:** PAGE_SIZE = 20, calculado sobre `displayRows` (agrupado por referrer).
 - **Dashboard agrupa por referrer:** `displayRows` muestra una fila por referrer (el referral más reciente). La exportación Excel usa `filtered` (todos los referrals individuales).
-- **No hay autenticación de usuario:** la API key protege el acceso al backend de n8n.
+- **Auth de usuario:** login con Google restringido a `@prophero.com`; el front manda el ID token (`Authorization: Bearer`) y n8n valida el JWT server-side. (Antes: API key en header — migrado jun 2026.)
 - **`referralHsId` como identificador de ruta:** `/referral/:id` usa el ID interno de HubSpot.
 - **Siblings navigation:** `ReferralDetail` llama a `useReferrals()` directamente para obtener los referrals del mismo referrer y mostrar flechas de navegación en los extremos de la pantalla (fixed left/right).
 
 ## Próximos pasos
 
-- (sin pendientes conocidos)
+- **Paginación server-side (cuando el volumen supere ~200):** la API `dashboard-referrals-list` está capada en `limit: 200` server-side y el filtrado es client-side, así que opera solo sobre esos 200. Cuando los referrals pasen de 200, el front no ve el resto → habrá que mover paginación/filtrado al backend (n8n). Hoy no es problema; tenerlo en el radar.

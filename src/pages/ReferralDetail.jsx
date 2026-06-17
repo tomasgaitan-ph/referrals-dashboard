@@ -10,9 +10,9 @@ import ConfirmDialog from '../components/ConfirmDialog'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const REFERRAL_STATUS_OPTIONS  = [{ value: 'created', label: 'Created' }, { value: 'paid',    label: 'Paid'    }]
+const REFERRAL_STATUS_OPTIONS  = [{ value: 'created', label: 'Created' }, { value: 'pending', label: 'Pending' }, { value: 'paid', label: 'Paid' }]
 const PAYMENT_STATUS_OPTIONS   = [{ value: 'pending', label: 'Pending' }, { value: 'paid',    label: 'Paid'    }]
-const DISCOUNT_STATUS_OPTIONS  = [{ value: 'pending', label: 'Pending' }, { value: 'applied', label: 'Applied' }]
+const DISCOUNT_STATUS_OPTIONS  = [{ value: 'not_applicable', label: 'Not applicable' }, { value: 'pending', label: 'Pending' }, { value: 'applied', label: 'Applied' }]
 
 const EMPTY_FORM = {
   referral_status:          '',
@@ -433,7 +433,7 @@ export default function ReferralDetail() {
                     <FormInput label="Address" value={fiscalForm.address} onChange={v => setFiscalForm(p => ({...p, address: v}))} placeholder="Street, city, country" missing={!referrer?.address} />
                   </div>
                   <div className="mt-4 pt-4 border-t border-slate-100">
-                    <button onClick={() => setConfirmFiscal(true)} disabled={savingFiscal || alreadyPaid} className="w-full flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-white hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]">
+                    <button onClick={() => setConfirmFiscal(true)} disabled={savingFiscal || alreadyPaid || !referrer?.id} className="w-full flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-white hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]">
                       {savingFiscal
                         ? <><svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Saving and relaunching payment…</>
                         : <><svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>Save and relaunch payment</>
@@ -443,6 +443,11 @@ export default function ReferralDetail() {
                       <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-emerald-600">
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                         Payment already completed — relaunch disabled.
+                      </p>
+                    )}
+                    {!alreadyPaid && !referrer?.id && (
+                      <p className="mt-2 text-center text-xs text-slate-400">
+                        Referrer ID unavailable — cannot relaunch payment.
                       </p>
                     )}
                   </div>

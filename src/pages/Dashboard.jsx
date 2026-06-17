@@ -19,6 +19,7 @@ const UNITS = [
 const REFERRAL_STATUS_OPTIONS = [
   { value: '', label: 'Referral status' },
   { value: 'created', label: 'Created' },
+  { value: 'pending', label: 'Pending' },
   { value: 'paid',    label: 'Paid'    },
 ]
 
@@ -30,6 +31,7 @@ const PAYMENT_STATUS_OPTIONS = [
 
 const DISCOUNT_STATUS_OPTIONS = [
   { value: '', label: 'Referred discount' },
+  { value: 'not_applicable', label: 'Not applicable' },
   { value: 'pending', label: 'Pending' },
   { value: 'applied', label: 'Applied' },
 ]
