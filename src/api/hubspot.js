@@ -1,5 +1,18 @@
 const BASE_URL = import.meta.env.VITE_N8N_BASE_URL
-const API_KEY = import.meta.env.VITE_API_KEY
+
+// Token de auth (ID token de Google) inyectado por AuthContext. NO es un secret
+// estático: es un JWT per-usuario, de vida corta, que n8n valida server-side.
+let authToken = null
+// Handler que se dispara ante un 401 (sesión vencida o no autorizada).
+let onUnauthorized = null
+
+export function setAuthToken(token) {
+  authToken = token
+}
+
+export function setUnauthorizedHandler(handler) {
+  onUnauthorized = handler
+}
 
 const ENDPOINTS = {
   LIST: '/webhook/dashboard-referrals-list',
@@ -18,17 +31,18 @@ class ApiError extends Error {
 }
 
 async function request(endpoint, body = {}) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (authToken) headers.Authorization = `Bearer ${authToken}`
+
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-    },
+    headers,
     body: JSON.stringify(body),
   })
 
   if (res.status === 401) {
-    throw new ApiError(401, 'API key inválida o no configurada')
+    if (onUnauthorized) onUnauthorized()
+    throw new ApiError(401, 'Sesión expirada o no autorizada')
   }
 
   if (!res.ok) {

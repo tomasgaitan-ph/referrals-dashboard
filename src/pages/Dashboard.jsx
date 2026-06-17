@@ -7,6 +7,7 @@ import SearchBar from '../components/SearchBar'
 import ReferralTable from '../components/ReferralTable'
 import ExportModal from '../components/ExportModal'
 import Toast from '../components/Toast'
+import { useAuth } from '../auth/AuthContext'
 
 const UNITS = [
   { value: null, label: 'All' },
@@ -98,6 +99,7 @@ function FilterSelect({ value, onChange, options }) {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
 
   const [unit,           setUnit]           = useState(null)
   const [search,         setSearch]         = useState('')
@@ -258,6 +260,25 @@ export default function Dashboard() {
                 </svg>
                 Export
               </button>
+
+              {/* Separador + usuario + logout */}
+              <div className="ml-1 flex items-center gap-2 border-l border-white/15 pl-3">
+                {user?.email && (
+                  <span className="hidden sm:inline text-xs text-white/50 max-w-[160px] truncate" title={user.email}>
+                    {user.email}
+                  </span>
+                )}
+                <button
+                  onClick={logout}
+                  title="Sign out"
+                  className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-white/20 hover:text-white transition-all duration-150 active:scale-95"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+                  </svg>
+                  Sign out
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -324,7 +345,7 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
             <p className="text-sm text-rose-700">
-              Failed to load referrals. Make sure n8n is active and <code className="font-mono text-xs">VITE_API_KEY</code> is correct.
+              Failed to load referrals. Your session may have expired, or n8n is unavailable.
             </p>
           </div>
         )}

@@ -18,4 +18,11 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    // Los tests corren en Node (vitest): habilitar globals de Node (Buffer, etc.).
+    files: ['**/*.test.{js,jsx}'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+    },
+  },
 ])
