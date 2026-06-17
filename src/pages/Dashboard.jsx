@@ -8,6 +8,7 @@ import ReferralTable from '../components/ReferralTable'
 import ExportModal from '../components/ExportModal'
 import Toast from '../components/Toast'
 import { useAuth } from '../auth/AuthContext'
+import { filterReferrals, groupByReferrer } from '../lib/referralFilters'
 
 const UNITS = [
   { value: null, label: 'All' },
@@ -134,51 +135,15 @@ export default function Dashboard() {
     return new Set(list.map(r => r.referrer?.referrer_code ?? r.referralHsId)).size
   }, [referralsData])
 
-  const filtered = useMemo(() => {
-    let list = referralsData?.referrals ?? []
+  const filtered = useMemo(
+    () => filterReferrals(referralsData?.referrals ?? [], {
+      search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo,
+    }),
+    [referralsData, search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo]
+  )
 
-    if (search) {
-      const q = search.toLowerCase()
-      list = list.filter(r =>
-        r.referral_id?.toLowerCase().includes(q) ||
-        `${r.referrer?.firstname ?? ''} ${r.referrer?.lastname ?? ''}`.toLowerCase().includes(q) ||
-        `${r.referido?.firstname ?? ''} ${r.referido?.lastname ?? ''}`.toLowerCase().includes(q) ||
-        r.deal?.dealname?.toLowerCase().includes(q)
-      )
-    }
-    if (statusFilter)   list = list.filter(r => r.referral_status         === statusFilter)
-    if (paymentFilter)  list = list.filter(r => r.referrer_payment_status  === paymentFilter)
-    if (discountFilter) list = list.filter(r => r.referido_discount_status === discountFilter)
-    if (dateFrom) {
-      const from = new Date(dateFrom)
-      list = list.filter(r => r.created_date && new Date(r.created_date) >= from)
-    }
-    if (dateTo) {
-      const to = new Date(dateTo)
-      to.setHours(23, 59, 59, 999)
-      list = list.filter(r => r.created_date && new Date(r.created_date) <= to)
-    }
-
-    return list
-  }, [referralsData, search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo])
-
-  // Agrupar por referrer: mostrar solo la fila más reciente por referrer_code
-  const displayRows = useMemo(() => {
-    const grouped = new Map()
-    for (const r of filtered) {
-      const key = r.referrer?.referrer_code ?? r.referralHsId
-      const existing = grouped.get(key)
-      if (!existing) {
-        grouped.set(key, r)
-      } else {
-        const dExisting = new Date(existing.created_date ?? 0)
-        const dCurrent  = new Date(r.created_date ?? 0)
-        if (dCurrent > dExisting) grouped.set(key, r)
-      }
-    }
-    return Array.from(grouped.values())
-      .sort((a, b) => new Date(b.created_date ?? 0) - new Date(a.created_date ?? 0))
-  }, [filtered])
+  // Agrupar por referrer: una fila por referrer con su referral más reciente
+  const displayRows = useMemo(() => groupByReferrer(filtered), [filtered])
 
   const totalPages = Math.max(1, Math.ceil(displayRows.length / PAGE_SIZE))
   const referrals  = displayRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)

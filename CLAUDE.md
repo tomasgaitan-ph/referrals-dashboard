@@ -6,7 +6,9 @@ Dashboard interno de PropHero para gestionar referrals entre clientes. Permite v
 
 ## Contexto
 
-Prophero — app interna, sin auth (protegida solo por API key en header).
+Prophero — app interna. **Auth:** login con Google restringido al dominio `@prophero.com`; el front envía el ID token en `Authorization: Bearer` y n8n valida el JWT server-side (migrado desde API key en header, jun 2026).
+
+> **Alcance de la fase actual:** el **Portal del Cliente** (app separada para referrers externos, WF-C) **NO se incluye y está OFF** por ahora — no se usa. Queda fuera del alcance de la auth y de la rotación de secret actuales.
 
 ## Stack usado en este proyecto
 
@@ -15,7 +17,7 @@ Prophero — app interna, sin auth (protegida solo por API key en header).
 - **Data fetching:** TanStack React Query v5 con `staleTime: Infinity`, `gcTime: Infinity` y persistencia en localStorage via `@tanstack/react-query-persist-client`
 - **Charts:** Recharts
 - **Export:** `xlsx` (SheetJS) — genera .xlsx client-side sin llamadas externas
-- **Backend/API:** n8n webhooks (no hay backend propio). Variables de entorno: `VITE_N8N_BASE_URL` + `VITE_API_KEY`
+- **Backend/API:** n8n webhooks (no hay backend propio). Variables de entorno: `VITE_N8N_BASE_URL` + `VITE_GOOGLE_CLIENT_ID` (ya no se usa `VITE_API_KEY` — el front manda el JWT de Google y n8n lo valida)
 - **Deploy:** Vercel
 
 ## Colores del sistema de diseño
@@ -41,7 +43,7 @@ Definidos como constantes en `src/api/hubspot.js`:
 | `KPIS`           | `/webhook/dashboard-referrals-kpis`         | Métricas agregadas                         |
 | `FISCAL_UPDATE`  | `/webhook/dashboard-update-referrer-fiscal` | Guarda datos fiscales y relanza pago       |
 
-Todos los endpoints reciben POST con `x-api-key` en header.
+Todos los endpoints reciben POST con `Authorization: Bearer <ID token de Google>` en header. n8n valida el JWT server-side (sub-workflow `auth-guard-google-jwt`) antes de procesar. (Antes usaban `x-api-key`; migrado en jun 2026.)
 
 ## Estructura de datos del referral (objeto en lista)
 

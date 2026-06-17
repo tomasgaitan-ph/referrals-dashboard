@@ -6,6 +6,7 @@ import { useReferrals } from '../hooks/useReferrals'
 import { updateReferral, updateReferrerFiscalAndPay } from '../api/hubspot'
 import StatusBadge from '../components/StatusBadge'
 import Toast from '../components/Toast'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -146,6 +147,7 @@ export default function ReferralDetail() {
   const [form,  setForm]  = useState(EMPTY_FORM)
   const [toast, setToast] = useState(null)
   const [fiscalForm, setFiscalForm] = useState({ iban: "", nif: "", address: "" })
+  const [confirmFiscal, setConfirmFiscal] = useState(false)
 
   useEffect(() => {
     if (!data?.referral) return
@@ -208,6 +210,7 @@ export default function ReferralDetail() {
   const deal     = data?.deal
 
   const missingFiscal = referrer ? ["iban","nif","address"].filter(f => !referrer[f]) : []
+  const alreadyPaid = referral?.referrer_payment_status === 'paid'
 
   const siblings = useMemo(() => {
     if (!referrer?.referrer_code) return []
@@ -430,12 +433,18 @@ export default function ReferralDetail() {
                     <FormInput label="Address" value={fiscalForm.address} onChange={v => setFiscalForm(p => ({...p, address: v}))} placeholder="Street, city, country" missing={!referrer?.address} />
                   </div>
                   <div className="mt-4 pt-4 border-t border-slate-100">
-                    <button onClick={() => saveFiscal()} disabled={savingFiscal} className="w-full flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-white hover:bg-secondary/90 transition-colors disabled:opacity-50 active:scale-[0.98]">
+                    <button onClick={() => setConfirmFiscal(true)} disabled={savingFiscal || alreadyPaid} className="w-full flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-white hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]">
                       {savingFiscal
                         ? <><svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Saving and relaunching payment…</>
                         : <><svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>Save and relaunch payment</>
                       }
                     </button>
+                    {alreadyPaid && (
+                      <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-emerald-600">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                        Payment already completed — relaunch disabled.
+                      </p>
+                    )}
                   </div>
                 </Card>
               )}
@@ -499,6 +508,16 @@ export default function ReferralDetail() {
       {toast && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
+
+      <ConfirmDialog
+        open={confirmFiscal}
+        title="Relaunch payment"
+        message={`This saves the fiscal data and relaunches the €${Number(referral?.referrer_amount ?? 500)} payment to the referrer. It triggers a real payment. Continue?`}
+        confirmLabel={savingFiscal ? 'Relaunching…' : 'Relaunch payment'}
+        loading={savingFiscal}
+        onConfirm={() => { saveFiscal(); setConfirmFiscal(false) }}
+        onClose={() => setConfirmFiscal(false)}
+      />
 
       {hasSiblings && !isLoading && (
         <>
