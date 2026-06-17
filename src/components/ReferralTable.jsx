@@ -2,7 +2,7 @@ import StatusBadge from './StatusBadge'
 
 const COLUMNS = [
   { key: 'referral_id', label: 'ID',               width: 'w-36' },
-  { key: 'unit',        label: 'Unit',              width: 'w-20' },
+  { key: 'unit',        label: 'Program',           width: 'w-20' },
   { key: 'referrer',        label: 'Referrer',          width: 'w-40' },
   { key: 'referrer_code',   label: 'Code',              width: 'w-28' },
   { key: 'total_referrals', label: '# Refs',            width: 'w-20' },
@@ -32,6 +32,22 @@ function fullName(contact) {
   return [contact.firstname, contact.lastname].filter(Boolean).join(' ') || '—'
 }
 
+function SortIcon({ state }) {
+  // state: 'asc' | 'desc' | null
+  if (!state) {
+    return (
+      <svg className="h-3 w-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 9 12 5.25 15.75 9M8.25 15 12 18.75 15.75 15" />
+      </svg>
+    )
+  }
+  return (
+    <svg className="h-3 w-3 text-secondary" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d={state === 'asc' ? 'M4.5 15.75l7.5-7.5 7.5 7.5' : 'M19.5 8.25l-7.5 7.5-7.5-7.5'} />
+    </svg>
+  )
+}
+
 function SkeletonRow() {
   return (
     <tr className="border-b border-slate-100">
@@ -44,20 +60,35 @@ function SkeletonRow() {
   )
 }
 
-export default function ReferralTable({ referrals = [], loading = false, onRowClick }) {
+export default function ReferralTable({ referrals = [], loading = false, onRowClick, sort, onSort }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_2px_8px_-2px_rgba(26,60,94,0.06)]">
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50">
-            {COLUMNS.map(col => (
-              <th
-                key={col.key}
-                className={`${col.width} px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500`}
-              >
-                {col.label}
-              </th>
-            ))}
+            {COLUMNS.map(col => {
+              const sortable = onSort && col.key !== 'action'
+              const state = sort?.key === col.key ? sort.dir : null
+              return (
+                <th
+                  key={col.key}
+                  className={`${col.width} px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500`}
+                >
+                  {sortable ? (
+                    <button
+                      type="button"
+                      onClick={() => onSort(col.key)}
+                      className="group inline-flex items-center gap-1 uppercase tracking-wider hover:text-slate-700 transition-colors"
+                    >
+                      {col.label}
+                      <SortIcon state={state} />
+                    </button>
+                  ) : (
+                    col.label
+                  )}
+                </th>
+              )
+            })}
           </tr>
         </thead>
 

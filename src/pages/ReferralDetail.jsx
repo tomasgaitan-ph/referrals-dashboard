@@ -290,7 +290,7 @@ export default function ReferralDetail() {
                     <Field label="Unique ID">
                       <span className="font-mono text-xs">{referral?.unique_id ?? '—'}</span>
                     </Field>
-                    <Field label="Unit">
+                    <Field label="Program">
                       {referral?.unit ? (
                         <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold ${
                           referral.unit === 'SP'

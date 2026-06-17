@@ -38,6 +38,49 @@ export function filterReferrals(list, {
   return result
 }
 
+function fullName(c) {
+  if (!c) return ''
+  return [c.firstname, c.lastname].filter(Boolean).join(' ')
+}
+
+// Accesores por columna (las keys matchean las columnas de ReferralTable).
+const SORT_ACCESSORS = {
+  referral_id:     r => r.referral_id,
+  unit:            r => r.unit,
+  referrer:        r => fullName(r.referrer),
+  referrer_code:   r => r.referrer?.referrer_code,
+  total_referrals: r => r.referrer?.total_referrals,
+  referido:        r => fullName(r.referido),
+  deal:            r => r.deal?.dealname,
+  status:          r => r.referral_status,
+  pago:            r => r.referrer_payment_status,
+  descuento:       r => r.referido_discount_status,
+  fecha:           r => r.created_date,
+}
+
+const NUMERIC_KEYS = new Set(['total_referrals'])
+const DATE_KEYS    = new Set(['fecha'])
+
+// Ordena las filas por la columna `key` en dirección `dir` ('asc' | 'desc').
+// Los valores vacíos/nulos van siempre al final. Key desconocida → sin cambios.
+export function sortReferrals(rows, key, dir = 'asc') {
+  const accessor = SORT_ACCESSORS[key]
+  if (!accessor) return rows ?? []
+  const sign = dir === 'desc' ? -1 : 1
+  return [...(rows ?? [])].sort((a, b) => {
+    const va = accessor(a)
+    const vb = accessor(b)
+    const aEmpty = va === null || va === undefined || va === ''
+    const bEmpty = vb === null || vb === undefined || vb === ''
+    if (aEmpty && bEmpty) return 0
+    if (aEmpty) return 1   // vacíos al final, sin importar la dirección
+    if (bEmpty) return -1
+    if (NUMERIC_KEYS.has(key)) return (Number(va) - Number(vb)) * sign
+    if (DATE_KEYS.has(key))    return (new Date(va) - new Date(vb)) * sign
+    return String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' }) * sign
+  })
+}
+
 // Agrupa por referrer (referrer_code, o referralHsId como fallback), conservando el
 // referral más reciente de cada uno, y ordena por fecha de creación descendente.
 export function groupByReferrer(list) {

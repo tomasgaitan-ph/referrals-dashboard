@@ -8,7 +8,7 @@ import ReferralTable from '../components/ReferralTable'
 import ExportModal from '../components/ExportModal'
 import Toast from '../components/Toast'
 import { useAuth } from '../auth/AuthContext'
-import { filterReferrals, groupByReferrer } from '../lib/referralFilters'
+import { filterReferrals, groupByReferrer, sortReferrals } from '../lib/referralFilters'
 
 const UNITS = [
   { value: null, label: 'All' },
@@ -114,6 +114,7 @@ export default function Dashboard() {
   const [page,           setPage]           = useState(1)
   const [toast,          setToast]          = useState(null)
   const [showExport,     setShowExport]     = useState(false)
+  const [sort,           setSort]           = useState({ key: 'fecha', dir: 'desc' })
 
   const {
     data: referralsData,
@@ -147,10 +148,25 @@ export default function Dashboard() {
   // Agrupar por referrer: una fila por referrer con su referral más reciente
   const displayRows = useMemo(() => groupByReferrer(filtered), [filtered])
 
-  const totalPages = Math.max(1, Math.ceil(displayRows.length / PAGE_SIZE))
-  const referrals  = displayRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  // Orden por columna (sobre las filas mostradas)
+  const sortedRows = useMemo(() => sortReferrals(displayRows, sort.key, sort.dir), [displayRows, sort])
 
-  useEffect(() => { setPage(1) }, [search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo, unit])
+  // KPI "Pending": referrals en estado 'created' (client-side, sobre el unit cargado)
+  const pendingCount = useMemo(
+    () => (referralsData?.referrals ?? []).filter(r => r.referral_status === 'created').length,
+    [referralsData]
+  )
+
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE))
+  const referrals  = sortedRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  function handleSort(key) {
+    setSort(prev => prev.key === key
+      ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+      : { key, dir: 'asc' })
+  }
+
+  useEffect(() => { setPage(1) }, [search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo, unit, sort])
 
   const hasActiveFilters = Boolean(search || statusFilter || paymentFilter || discountFilter || dateFrom || dateTo)
 
@@ -277,9 +293,9 @@ export default function Dashboard() {
           />
           <KPICard
             title="Pending"
-            value={kpisData?.byStatus?.created ?? '—'}
+            value={pendingCount}
             subtitle="in created status"
-            loading={kpisLoading}
+            loading={referralsLoading}
           />
         </div>
 
@@ -334,6 +350,8 @@ export default function Dashboard() {
           referrals={referrals}
           loading={referralsLoading}
           onRowClick={id => navigate(`/referral/${id}`)}
+          sort={sort}
+          onSort={handleSort}
         />
 
         {/* Pagination */}

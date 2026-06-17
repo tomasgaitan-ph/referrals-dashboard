@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterReferrals, groupByReferrer } from './referralFilters'
+import { filterReferrals, groupByReferrer, sortReferrals } from './referralFilters'
 
 // Referral de prueba con defaults razonables, sobreescribibles por test.
 function ref(overrides = {}) {
@@ -129,5 +129,57 @@ describe('groupByReferrer', () => {
     ]
     // Sin referrer_code, cada uno es su propio grupo (key = referralHsId)
     expect(groupByReferrer(list)).toHaveLength(2)
+  })
+})
+
+describe('sortReferrals', () => {
+  it('ordena strings asc/desc (case-insensitive)', () => {
+    const list = [
+      ref({ referralHsId: '1', referrer: { firstname: 'beto', lastname: '' } }),
+      ref({ referralHsId: '2', referrer: { firstname: 'Ana', lastname: '' } }),
+      ref({ referralHsId: '3', referrer: { firstname: 'Carlos', lastname: '' } }),
+    ]
+    expect(sortReferrals(list, 'referrer', 'asc').map(r => r.referralHsId)).toEqual(['2', '1', '3'])
+    expect(sortReferrals(list, 'referrer', 'desc').map(r => r.referralHsId)).toEqual(['3', '1', '2'])
+  })
+
+  it('ordena numéricamente total_referrals (no como string)', () => {
+    const list = [
+      ref({ referralHsId: '1', referrer: { total_referrals: 9 } }),
+      ref({ referralHsId: '2', referrer: { total_referrals: 10 } }),
+      ref({ referralHsId: '3', referrer: { total_referrals: 2 } }),
+    ]
+    expect(sortReferrals(list, 'total_referrals', 'asc').map(r => r.referralHsId)).toEqual(['3', '1', '2'])
+  })
+
+  it('ordena por fecha', () => {
+    const list = [
+      ref({ referralHsId: '1', created_date: '2026-06-10' }),
+      ref({ referralHsId: '2', created_date: '2026-06-01' }),
+      ref({ referralHsId: '3', created_date: '2026-06-20' }),
+    ]
+    expect(sortReferrals(list, 'fecha', 'desc').map(r => r.referralHsId)).toEqual(['3', '1', '2'])
+  })
+
+  it('manda los vacíos al final (en ambas direcciones)', () => {
+    const list = [
+      ref({ referralHsId: '1', deal: { dealname: 'Beta' } }),
+      ref({ referralHsId: '2', deal: { dealname: '' } }),
+      ref({ referralHsId: '3', deal: { dealname: 'Alfa' } }),
+    ]
+    expect(sortReferrals(list, 'deal', 'asc').map(r => r.referralHsId)).toEqual(['3', '1', '2'])
+    expect(sortReferrals(list, 'deal', 'desc').map(r => r.referralHsId)).toEqual(['1', '3', '2'])
+  })
+
+  it('key desconocida devuelve la lista sin cambios', () => {
+    const list = [ref({ referralHsId: '1' }), ref({ referralHsId: '2' })]
+    expect(sortReferrals(list, 'inexistente', 'asc').map(r => r.referralHsId)).toEqual(['1', '2'])
+  })
+
+  it('no muta la lista original', () => {
+    const list = [ref({ referralHsId: '2', created_date: '2026-06-01' }), ref({ referralHsId: '1', created_date: '2026-06-02' })]
+    const before = list.map(r => r.referralHsId)
+    sortReferrals(list, 'fecha', 'asc')
+    expect(list.map(r => r.referralHsId)).toEqual(before)
   })
 })
