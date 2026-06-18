@@ -128,6 +128,7 @@ export default function Dashboard() {
   const {
     data: kpisData,
     isLoading: kpisLoading,
+    refetch: refetchKpis,
   } = useKPIs({ unit })
 
   const totalReferrals = referralsData?.referrals?.length ?? null
@@ -171,7 +172,7 @@ export default function Dashboard() {
   const hasActiveFilters = Boolean(search || statusFilter || paymentFilter || discountFilter || dateFrom || dateTo)
 
   function handleRefetch() {
-    refetch()
+    Promise.all([refetch(), refetchKpis()])
       .then(() => setToast({ message: 'Data updated successfully', type: 'success' }))
       .catch(() => setToast({ message: 'Error connecting to n8n', type: 'error' }))
   }
