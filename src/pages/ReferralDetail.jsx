@@ -3,24 +3,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useReferralDetail } from '../hooks/useReferralDetail'
 import { useReferrals } from '../hooks/useReferrals'
-import { updateReferral, updateReferrerFiscalAndPay } from '../api/hubspot'
+import { updateReferrerFiscalAndPay } from '../api/hubspot'
 import StatusBadge from '../components/StatusBadge'
 import Toast from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
-
-// ── Constants ────────────────────────────────────────────────────────────────
-
-const REFERRAL_STATUS_OPTIONS  = [{ value: 'created', label: 'Created' }, { value: 'pending', label: 'Pending' }, { value: 'paid', label: 'Paid' }]
-const PAYMENT_STATUS_OPTIONS   = [{ value: 'pending', label: 'Pending' }, { value: 'paid',    label: 'Paid'    }]
-const DISCOUNT_STATUS_OPTIONS  = [{ value: 'not_applicable', label: 'Not applicable' }, { value: 'pending', label: 'Pending' }, { value: 'applied', label: 'Applied' }]
-
-const EMPTY_FORM = {
-  referral_status:          '',
-  referrer_payment_status:  '',
-  referrer_payment_date:    '',
-  referido_discount_status: '',
-  referido_discount_date:   '',
-}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -29,11 +15,6 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('es-ES', {
     day: '2-digit', month: '2-digit', year: 'numeric',
   })
-}
-
-function toDateInput(dateStr) {
-  if (!dateStr) return ''
-  return String(dateStr).slice(0, 10)
 }
 
 function formatEur(n) {
@@ -66,38 +47,6 @@ function Field({ label, children }) {
     <div>
       <dt className="text-xs text-slate-400 mb-0.5">{label}</dt>
       <dd className="text-sm text-slate-700">{children}</dd>
-    </div>
-  )
-}
-
-function FormSelect({ label, value, onChange, options }) {
-  return (
-    <div>
-      <label className="block text-xs text-slate-500 mb-1">{label}</label>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-colors focus:border-secondary focus:ring-2 focus:ring-secondary/20 appearance-none cursor-pointer"
-      >
-        <option value="">No change</option>
-        {options.map(o => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
-    </div>
-  )
-}
-
-function FormDate({ label, value, onChange }) {
-  return (
-    <div>
-      <label className="block text-xs text-slate-500 mb-1">{label}</label>
-      <input
-        type="date"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-colors focus:border-secondary focus:ring-2 focus:ring-secondary/20"
-      />
     </div>
   )
 }
@@ -144,36 +93,15 @@ export default function ReferralDetail() {
   const { data, isLoading, isError, error, isFetching, refetch } = useReferralDetail(id)
   const { data: listData } = useReferrals()
 
-  const [form,  setForm]  = useState(EMPTY_FORM)
   const [toast, setToast] = useState(null)
   const [fiscalForm, setFiscalForm] = useState({ iban: "", nif: "", address: "" })
   const [confirmFiscal, setConfirmFiscal] = useState(false)
 
   useEffect(() => {
-    if (!data?.referral) return
-    const r = data.referral
-    setForm({
-      referral_status:          r.referral_status          ?? '',
-      referrer_payment_status:  r.referrer_payment_status  ?? '',
-      referrer_payment_date:    toDateInput(r.referrer_payment_date),
-      referido_discount_status: r.referido_discount_status ?? '',
-      referido_discount_date:   toDateInput(r.referido_discount_date),
-    })
-    setFiscalForm({ iban: data?.referrer?.iban ?? "", nif: data?.referrer?.nif ?? "", address: data?.referrer?.address ?? "" })
+    if (!data?.referrer) return
+    const r = data.referrer
+    setFiscalForm({ iban: r.iban ?? "", nif: r.nif ?? "", address: r.address ?? "" })
   }, [data])
-
-  const { mutate: save, isPending: saving } = useMutation({
-    mutationFn: (properties) => updateReferral(id, properties),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['referral', id] })
-      queryClient.invalidateQueries({ queryKey: ['referrals'] })
-      queryClient.invalidateQueries({ queryKey: ['kpis'] })
-      setToast({ message: 'Changes saved successfully', type: 'success' })
-    },
-    onError: (err) => {
-      setToast({ message: err.message ?? 'Error saving changes', type: 'error' })
-    },
-  })
 
   const { mutate: saveFiscal, isPending: savingFiscal } = useMutation({
     mutationFn: () => updateReferrerFiscalAndPay(id, referrer?.id, fiscalForm),
@@ -185,18 +113,6 @@ export default function ReferralDetail() {
     },
     onError: (err) => setToast({ message: err.message ?? "Error saving fiscal data", type: "error" }),
   })
-
-  function setField(key) {
-    return (value) => setForm(prev => ({ ...prev, [key]: value }))
-  }
-
-  function handleSave() {
-    const properties = Object.fromEntries(
-      Object.entries(form).filter(([, v]) => v !== '')
-    )
-    if (Object.keys(properties).length === 0) return
-    save(properties)
-  }
 
   function handleRefetch() {
     refetch()
@@ -280,9 +196,9 @@ export default function ReferralDetail() {
             {/* ── Left column ─────────────────────────────────── */}
             <div className="lg:col-span-2 space-y-5">
 
-              {/* Referral */}
+              {/* Information */}
               {isLoading ? <SkeletonCard lines={6} /> : (
-                <Card title="Referral">
+                <Card title="Information">
                   <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
                     <Field label="ID">
                       <span className="font-mono text-xs">{referral?.referral_id ?? '—'}</span>
@@ -327,57 +243,31 @@ export default function ReferralDetail() {
                 </Card>
               )}
 
-              {/* Edit panel */}
-              {isLoading ? <SkeletonCard lines={5} /> : (
-                <Card title="Edit">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormSelect
-                      label="Referral status"
-                      value={form.referral_status}
-                      onChange={setField('referral_status')}
-                      options={REFERRAL_STATUS_OPTIONS}
-                    />
-                    <FormSelect
-                      label="Referrer payment"
-                      value={form.referrer_payment_status}
-                      onChange={setField('referrer_payment_status')}
-                      options={PAYMENT_STATUS_OPTIONS}
-                    />
-                    <FormDate
-                      label="Referrer payment date"
-                      value={form.referrer_payment_date}
-                      onChange={setField('referrer_payment_date')}
-                    />
-                    <FormSelect
-                      label="Referral discount"
-                      value={form.referido_discount_status}
-                      onChange={setField('referido_discount_status')}
-                      options={DISCOUNT_STATUS_OPTIONS}
-                    />
-                    <FormDate
-                      label="Referral discount date"
-                      value={form.referido_discount_date}
-                      onChange={setField('referido_discount_date')}
-                    />
-                  </div>
-
-                  <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
-                    <p className="text-xs text-slate-400">
-                      Amounts and unit are read-only.
-                    </p>
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-secondary transition-colors disabled:opacity-50 active:scale-[0.98]"
-                    >
-                      {saving && (
-                        <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                        </svg>
-                      )}
-                      {saving ? 'Saving…' : 'Save changes'}
-                    </button>
-                  </div>
+              {/* Deal */}
+              {isLoading ? <SkeletonCard lines={3} /> : (
+                <Card title="Deal">
+                  {deal ? (
+                    <dl className="space-y-3">
+                      <Field label="Name">{deal.dealname ?? '—'}</Field>
+                      <Field label="Pipeline">{deal.pipeline ?? '—'}</Field>
+                      <Field label="Stage">{deal.dealstage ?? '—'}</Field>
+                      <div className="pt-1">
+                        <a
+                          href={deal.hubspotUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-secondary hover:text-secondary transition-colors active:scale-[0.98]"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                          </svg>
+                          View in HubSpot
+                        </a>
+                      </div>
+                    </dl>
+                  ) : (
+                    <p className="text-sm text-slate-400">No deal associated.</p>
+                  )}
                 </Card>
               )}
             </div>
@@ -473,34 +363,6 @@ export default function ReferralDetail() {
                     </dl>
                   ) : (
                     <p className="text-sm text-slate-400">No referred associated.</p>
-                  )}
-                </Card>
-              )}
-
-              {/* Deal */}
-              {isLoading ? <SkeletonCard lines={3} /> : (
-                <Card title="Deal">
-                  {deal ? (
-                    <dl className="space-y-3">
-                      <Field label="Name">{deal.dealname ?? '—'}</Field>
-                      <Field label="Pipeline">{deal.pipeline ?? '—'}</Field>
-                      <Field label="Stage">{deal.dealstage ?? '—'}</Field>
-                      <div className="pt-1">
-                        <a
-                          href={deal.hubspotUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-secondary hover:text-secondary transition-colors active:scale-[0.98]"
-                        >
-                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                          </svg>
-                          View in HubSpot
-                        </a>
-                      </div>
-                    </dl>
-                  ) : (
-                    <p className="text-sm text-slate-400">No deal associated.</p>
                   )}
                 </Card>
               )}
