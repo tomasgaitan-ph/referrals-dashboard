@@ -6,7 +6,7 @@ const COLUMNS = [
   { key: 'referrer',        label: 'Referrer',          width: 'w-40' },
   { key: 'referrer_code',   label: 'Code',              width: 'w-28' },
   { key: 'total_referrals', label: '# Refs',            width: 'w-20' },
-  { key: 'referido',        label: 'Referred',          width: 'w-40' },
+  { key: 'referido',        label: 'Referral',          width: 'w-40' },
   { key: 'deal',        label: 'Deal',              width: 'w-44' },
   { key: 'status',      label: 'Status',            width: 'w-28' },
   { key: 'pago',        label: 'Referrer Payment',  width: 'w-32' },

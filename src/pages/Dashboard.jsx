@@ -30,7 +30,7 @@ const PAYMENT_STATUS_OPTIONS = [
 ]
 
 const DISCOUNT_STATUS_OPTIONS = [
-  { value: '', label: 'Referred discount' },
+  { value: '', label: 'Referral discount' },
   { value: 'not_applicable', label: 'Not applicable' },
   { value: 'pending', label: 'Pending' },
   { value: 'applied', label: 'Applied' },

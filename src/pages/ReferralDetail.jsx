@@ -314,13 +314,13 @@ export default function ReferralDetail() {
                     <Field label="Referrer amount">
                       <span className="font-mono">{formatEur(referral?.referrer_amount)}</span>
                     </Field>
-                    <Field label="Referred discount">
+                    <Field label="Referral discount">
                       <StatusBadge status={referral?.referido_discount_status} />
                     </Field>
                     <Field label="Discount date">
                       <span className="font-mono text-xs">{formatDate(referral?.referido_discount_date)}</span>
                     </Field>
-                    <Field label="Referred amount">
+                    <Field label="Referral amount">
                       <span className="font-mono">{formatEur(referral?.referido_amount)}</span>
                     </Field>
                   </dl>
@@ -349,13 +349,13 @@ export default function ReferralDetail() {
                       onChange={setField('referrer_payment_date')}
                     />
                     <FormSelect
-                      label="Referred discount"
+                      label="Referral discount"
                       value={form.referido_discount_status}
                       onChange={setField('referido_discount_status')}
                       options={DISCOUNT_STATUS_OPTIONS}
                     />
                     <FormDate
-                      label="Referred discount date"
+                      label="Referral discount date"
                       value={form.referido_discount_date}
                       onChange={setField('referido_discount_date')}
                     />
@@ -454,9 +454,9 @@ export default function ReferralDetail() {
                 </Card>
               )}
 
-              {/* Referred */}
+              {/* Referral */}
               {isLoading ? <SkeletonCard lines={3} /> : (
-                <Card title="Referred">
+                <Card title="Referral">
                   {referido ? (
                     <dl className="space-y-3">
                       <Field label="Name">{fullName(referido)}</Field>
