@@ -135,7 +135,6 @@ export default function Dashboard() {
 
   const totalReferrers = useMemo(() => {
     const list = referralsData?.referrals ?? []
-    if (!list.length) return null
     return new Set(list.map(r => r.referrer?.referrer_code ?? r.referralHsId)).size
   }, [referralsData])
 
