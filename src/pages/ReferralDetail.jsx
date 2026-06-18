@@ -175,7 +175,7 @@ export default function ReferralDetail() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-5xl mx-auto px-6 py-8">
 
         {/* Error state */}
         {isError && (
@@ -191,14 +191,42 @@ export default function ReferralDetail() {
 
         {/* Content grid */}
         {!isError && (
-          <div className="grid lg:grid-cols-3 gap-5">
+          <div className="space-y-5">
 
-            {/* ── Left column ─────────────────────────────────── */}
-            <div className="lg:col-span-2 space-y-5">
+            {/* Fila 1: Deal (izq) + Information (principal) */}
+            <div className="grid gap-5 lg:grid-cols-3">
+
+              {/* Deal */}
+              {isLoading ? <SkeletonCard lines={3} /> : (
+                <Card title="Deal">
+                  {deal ? (
+                    <dl className="space-y-3">
+                      <Field label="Name">{deal.dealname ?? '—'}</Field>
+                      <Field label="Pipeline">{deal.pipeline ?? '—'}</Field>
+                      <Field label="Stage">{deal.dealstage ?? '—'}</Field>
+                      <div className="pt-1">
+                        <a
+                          href={deal.hubspotUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-secondary hover:text-secondary transition-colors active:scale-[0.98]"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                          </svg>
+                          View in HubSpot
+                        </a>
+                      </div>
+                    </dl>
+                  ) : (
+                    <p className="text-sm text-slate-400">No deal associated.</p>
+                  )}
+                </Card>
+              )}
 
               {/* Information */}
               {isLoading ? <SkeletonCard lines={6} /> : (
-                <Card title="Information">
+                <Card title="Information" className="lg:col-span-2">
                   <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
                     <Field label="ID">
                       <span className="font-mono text-xs">{referral?.referral_id ?? '—'}</span>
@@ -242,38 +270,40 @@ export default function ReferralDetail() {
                   </dl>
                 </Card>
               )}
-
-              {/* Deal */}
-              {isLoading ? <SkeletonCard lines={3} /> : (
-                <Card title="Deal">
-                  {deal ? (
-                    <dl className="space-y-3">
-                      <Field label="Name">{deal.dealname ?? '—'}</Field>
-                      <Field label="Pipeline">{deal.pipeline ?? '—'}</Field>
-                      <Field label="Stage">{deal.dealstage ?? '—'}</Field>
-                      <div className="pt-1">
-                        <a
-                          href={deal.hubspotUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-secondary hover:text-secondary transition-colors active:scale-[0.98]"
-                        >
-                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                          </svg>
-                          View in HubSpot
-                        </a>
-                      </div>
-                    </dl>
-                  ) : (
-                    <p className="text-sm text-slate-400">No deal associated.</p>
-                  )}
-                </Card>
-              )}
             </div>
 
-            {/* ── Right column ────────────────────────────────── */}
-            <div className="space-y-5">
+            {/* Fila 2: Referrer fiscal data */}
+            {!isLoading && referrer && (
+              <Card title="Referrer fiscal data">
+                <div className="space-y-3">
+                  <FormInput label="IBAN" value={fiscalForm.iban} onChange={v => setFiscalForm(p => ({...p, iban: v}))} placeholder="ES00 0000 0000 00 0000000000" missing={!referrer?.iban} />
+                  <FormInput label="NIF" value={fiscalForm.nif} onChange={v => setFiscalForm(p => ({...p, nif: v}))} placeholder="12345678A" missing={!referrer?.nif} />
+                  <FormInput label="Address" value={fiscalForm.address} onChange={v => setFiscalForm(p => ({...p, address: v}))} placeholder="Street, city, country" missing={!referrer?.address} />
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-100">
+                  <button onClick={() => setConfirmFiscal(true)} disabled={savingFiscal || alreadyPaid || !referrer?.id} className="w-full flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-white hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]">
+                    {savingFiscal
+                      ? <><svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Saving and relaunching payment…</>
+                      : <><svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>Save and relaunch payment</>
+                    }
+                  </button>
+                  {alreadyPaid && (
+                    <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-emerald-600">
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                      Payment already completed — relaunch disabled.
+                    </p>
+                  )}
+                  {!alreadyPaid && !referrer?.id && (
+                    <p className="mt-2 text-center text-xs text-slate-400">
+                      Referrer ID unavailable — cannot relaunch payment.
+                    </p>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {/* Fila 3: Referrer + Referral */}
+            <div className="grid gap-5 sm:grid-cols-2">
 
               {/* Referrer */}
               {isLoading ? <SkeletonCard lines={6} /> : (
@@ -311,36 +341,6 @@ export default function ReferralDetail() {
                   ) : (
                     <p className="text-sm text-slate-400">No referrer associated.</p>
                   )}
-                </Card>
-              )}
-
-              {/* Referrer fiscal data */}
-              {!isLoading && referrer && (
-                <Card title="Referrer fiscal data">
-                  <div className="space-y-3">
-                    <FormInput label="IBAN" value={fiscalForm.iban} onChange={v => setFiscalForm(p => ({...p, iban: v}))} placeholder="ES00 0000 0000 00 0000000000" missing={!referrer?.iban} />
-                    <FormInput label="NIF" value={fiscalForm.nif} onChange={v => setFiscalForm(p => ({...p, nif: v}))} placeholder="12345678A" missing={!referrer?.nif} />
-                    <FormInput label="Address" value={fiscalForm.address} onChange={v => setFiscalForm(p => ({...p, address: v}))} placeholder="Street, city, country" missing={!referrer?.address} />
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-slate-100">
-                    <button onClick={() => setConfirmFiscal(true)} disabled={savingFiscal || alreadyPaid || !referrer?.id} className="w-full flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-white hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]">
-                      {savingFiscal
-                        ? <><svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Saving and relaunching payment…</>
-                        : <><svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>Save and relaunch payment</>
-                      }
-                    </button>
-                    {alreadyPaid && (
-                      <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-emerald-600">
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                        Payment already completed — relaunch disabled.
-                      </p>
-                    )}
-                    {!alreadyPaid && !referrer?.id && (
-                      <p className="mt-2 text-center text-xs text-slate-400">
-                        Referrer ID unavailable — cannot relaunch payment.
-                      </p>
-                    )}
-                  </div>
                 </Card>
               )}
 
