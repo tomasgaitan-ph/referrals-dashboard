@@ -27,3 +27,6 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Playwright MCP scratch (screenshots / snapshots) — no commitear
+.playwright-mcp
