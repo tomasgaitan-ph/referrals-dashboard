@@ -14,13 +14,26 @@ export function setUnauthorizedHandler(handler) {
   onUnauthorized = handler
 }
 
+// Sufijo de entorno: '-prod' en Production (Vercel), '' en dev/local.
+// El base (VITE_N8N_BASE_URL) es el mismo host para dev y prod; sólo cambia
+// el sufijo del path del webhook. Así main (Production) pega a prod y los
+// branches de feature (Preview) + local pegan a dev, sin if de entorno.
+const ENV_SUFFIX = import.meta.env.VITE_N8N_ENV_SUFFIX || ''
+
 const ENDPOINTS = {
-  LIST: '/webhook/dashboard-referrals-list',
-  DETAIL: '/webhook/dashboard-referral-detail',
-  UPDATE: '/webhook/dashboard-referral-update',
-  KPIS: '/webhook/dashboard-referrals-kpis',
-  FISCAL_UPDATE: '/webhook/dashboard-update-referrer-fiscal',
+  LIST: `/webhook/dashboard-referrals-list${ENV_SUFFIX}`,
+  DETAIL: `/webhook/dashboard-referral-detail${ENV_SUFFIX}`,
+  KPIS: `/webhook/dashboard-referrals-kpis${ENV_SUFFIX}`,
+  FISCAL_UPDATE: `/webhook/dashboard-update-referrer-fiscal${ENV_SUFFIX}`,
 }
+
+// La lista (d1) pagina server-side (default pageSize 20, cap 200). Pedimos una
+// sola página grande para conservar el modelo client-side actual (filtrado /
+// orden / group-by-referrer / export / KPIs sobre el set completo). Mismo límite
+// de 200 ya documentado. Cuando el volumen supere 200 hay que mover paginación y
+// filtros al backend (ver "Próximos pasos" en CLAUDE.md).
+const LIST_PAGE = 1
+const LIST_PAGE_SIZE = 200
 
 class ApiError extends Error {
   constructor(status, message) {
@@ -60,15 +73,11 @@ async function request(endpoint, body = {}) {
 }
 
 export function fetchReferralsList({ unit = null, status = null, search = null } = {}) {
-  return request(ENDPOINTS.LIST, { unit, status, search })
+  return request(ENDPOINTS.LIST, { unit, status, search, page: LIST_PAGE, pageSize: LIST_PAGE_SIZE })
 }
 
 export function fetchReferralDetail(referralId) {
   return request(ENDPOINTS.DETAIL, { referralId })
-}
-
-export function updateReferral(referralId, properties) {
-  return request(ENDPOINTS.UPDATE, { referralId, properties })
 }
 
 export function fetchKPIs({ unit = null } = {}) {

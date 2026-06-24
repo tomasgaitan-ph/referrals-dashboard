@@ -17,8 +17,8 @@ Prophero — app interna. **Auth:** login con Google restringido al dominio `@pr
 - **Data fetching:** TanStack React Query v5 con `staleTime: Infinity`, `gcTime: Infinity` y persistencia en localStorage via `@tanstack/react-query-persist-client`
 - **Charts:** Recharts
 - **Export:** `xlsx` (SheetJS) — genera .xlsx client-side sin llamadas externas
-- **Backend/API:** n8n webhooks (no hay backend propio). Variables de entorno: `VITE_N8N_BASE_URL` + `VITE_GOOGLE_CLIENT_ID` (ya no se usa `VITE_API_KEY` — el front manda el JWT de Google y n8n lo valida)
-- **Deploy:** Vercel
+- **Backend/API:** n8n webhooks (no hay backend propio). Variables de entorno: `VITE_N8N_BASE_URL` + `VITE_GOOGLE_CLIENT_ID` + `VITE_N8N_ENV_SUFFIX` (ya no se usa `VITE_API_KEY` — el front manda el JWT de Google y n8n lo valida)
+- **Deploy:** Vercel. Dev/prod se resuelve con `VITE_N8N_ENV_SUFFIX` por scope de Vercel: **Production** = `-prod` (webhooks prod → HubSpot prod `26806608`), **Preview + Development** y local = vacío (webhooks dev → HubSpot sandbox `146997468`). Mismo host (`VITE_N8N_BASE_URL`) para ambos; sólo cambia el sufijo del path. Así `main` pega a prod y los branches de feature a dev, sin `if` de entorno en el código.
 
 ## Colores del sistema de diseño
 
@@ -29,21 +29,30 @@ Definidos en `tailwind.config.js`:
 
 ## Estado actual
 
-App funcional y deployada. El dashboard muestra lista de referrals con filtros, KPIs, paginación (PAGE_SIZE = 20) y exportación a Excel. La página de detalle permite editar estados, fechas, datos fiscales y muestra navegación entre referrals del mismo referrer.
+App funcional y deployada. El dashboard muestra lista de referrals con filtros, KPIs, **columnas ordenables**, paginación (PAGE_SIZE = 20) y exportación a Excel. La columna/selector que antes se llamaba "Unit" ahora se muestra como **"Program"** en la UI (la variable interna sigue siendo `unit`).
+
+La página de detalle es **read-only** respecto a estados y fechas (se eliminó el formulario de edición de estados — refactor jun 2026). Lo único editable es el bloque **"Referrer fiscal data"** (IBAN / NIF / Address), que al guardar **relanza el pago al referrer** vía `FISCAL_UPDATE` (con `ConfirmDialog` y guard: deshabilitado si `referrer_payment_status === 'paid'` o falta `referrer.id`). Incluye navegación entre referrals del mismo referrer.
 
 ## Endpoints n8n
 
-Definidos como constantes en `src/api/hubspot.js`:
+Definidos como constantes en `src/api/hubspot.js`. El path real lleva el sufijo `VITE_N8N_ENV_SUFFIX` (`-prod` en Production, vacío en dev/local):
 
-| Constante        | Path                                        | Uso                                        |
+| Constante        | Path base (sin sufijo)                      | Uso                                        |
 |------------------|---------------------------------------------|--------------------------------------------|
-| `LIST`           | `/webhook/dashboard-referrals-list`         | Trae todos los referrals (filtro por unit) |
+| `LIST`           | `/webhook/dashboard-referrals-list`         | Lista de referrals (paginada server-side)  |
 | `DETAIL`         | `/webhook/dashboard-referral-detail`        | Detalle de un referral por ID              |
-| `UPDATE`         | `/webhook/dashboard-referral-update`        | Actualiza estado/fechas de un referral     |
 | `KPIS`           | `/webhook/dashboard-referrals-kpis`         | Métricas agregadas                         |
 | `FISCAL_UPDATE`  | `/webhook/dashboard-update-referrer-fiscal` | Guarda datos fiscales y relanza pago       |
 
 Todos los endpoints reciben POST con `Authorization: Bearer <ID token de Google>` en header. n8n valida el JWT server-side (sub-workflow `auth-guard-google-jwt`) antes de procesar. (Antes usaban `x-api-key`; migrado en jun 2026.)
+
+### Contrato de la lista (d1) — paginación server-side
+
+El endpoint d1 pagina server-side: acepta `page` (default 1) y `pageSize` (default 20, **cap 200**) y responde `{ referrals, total, page, pageSize, totalPages }` (mismo shape en página vacía). Filtra server-side **sólo** `unit`, `referral_status` (status) y `search` (full-text `query` de HubSpot). **No** filtra server-side `referrer_payment_status`, `referido_discount_status`, `dateFrom`/`dateTo`, ni hace group-by-referrer.
+
+> **Path A (bridge, cutover prod jun 2026):** el front manda `page:1, pageSize:200` y conserva el modelo client-side (filtrado / orden / group-by-referrer / export / KPIs sobre el set completo). Es equivalente a la UX previa, con el mismo cap de 200. El refactor server-side completo queda para cuando el volumen supere 200 (ver "Próximos pasos").
+
+> **`dashboard-referral-update` (wf-d3) dado de baja (cutover jun 2026):** era el endpoint de escritura del viejo formulario de edición. Al pasar el detalle a read-only quedó sin call sites; se **desactivó en n8n** (`active: false`, POST → 404) y se eliminó del front la función `updateReferral()` + la constante `UPDATE`. Si el detalle vuelve a ser editable, hay que reactivar wf-d3 **con validación de valores (enums)** antes de reintroducir `updateReferral()` — coordinar con el lado n8n.
 
 ## Estructura de datos del referral (objeto en lista)
 
@@ -53,10 +62,10 @@ Todos los endpoints reciben POST con `Authorization: Bearer <ID token de Google>
   referral_id,               // ID legible (ej: "REF-0001")
   unique_id,                 // ID único alternativo (viene del detalle, no de la lista)
   unit,                      // "SP" | "VH"
-  referral_status,           // "created" | "paid"
+  referral_status,           // "created" | "pending" | "paid"
   referrer_payment_status,   // "pending" | "paid"
   referrer_payment_date,
-  referido_discount_status,  // "pending" | "applied"
+  referido_discount_status,  // "not_applicable" | "pending" | "applied"
   referido_discount_date,
   referrer_amount,
   referido_amount,
@@ -84,8 +93,9 @@ Todos los endpoints reciben POST con `Authorization: Bearer <ID token de Google>
 | Archivo                                 | Descripción                                                   |
 |-----------------------------------------|---------------------------------------------------------------|
 | `src/api/hubspot.js`                    | Todas las llamadas a n8n. Constantes de endpoints.            |
-| `src/pages/Dashboard.jsx`              | Lista principal con filtros, KPIs, paginación, botón Export   |
-| `src/pages/ReferralDetail.jsx`         | Vista y edición de un referral + navegación entre siblings    |
+| `src/lib/referralFilters.js`           | Lógica pura extraída y testeada: `filterReferrals`, `sortReferrals`, `groupByReferrer` (+ `.test.js`) |
+| `src/pages/Dashboard.jsx`              | Lista principal con filtros, KPIs, orden por columna, paginación, botón Export |
+| `src/pages/ReferralDetail.jsx`         | Vista read-only del referral + edición fiscal (relanza pago) + navegación entre siblings |
 | `src/components/ReferralTable.jsx`     | Tabla de referrals (presentacional)                           |
 | `src/components/ExportModal.jsx`       | Modal de exportación Excel con selección de columnas          |
 | `src/components/StatusBadge.jsx`       | Badge de estado (created/paid/pending/applied)                |
@@ -99,8 +109,11 @@ Todos los endpoints reciben POST con `Authorization: Bearer <ID token de Google>
 
 - **Sin backend propio:** toda la lógica de negocio vive en n8n. El frontend solo consume y muestra.
 - **staleTime: Infinity + gcTime: Infinity + localStorage persister:** los datos no se refrescan solos y sobreviven page reloads; hay botón manual "Refresh" para evitar llamadas innecesarias a n8n.
-- **Filtrado 100% client-side:** la API lista devuelve los referrals del unit seleccionado (⚠️ cap server-side de `limit: 200`); el filtrado por texto, estado y fecha se hace en el frontend sobre esos datos.
-- **Paginación client-side:** PAGE_SIZE = 20, calculado sobre `displayRows` (agrupado por referrer).
+- **Filtrado + orden 100% client-side (Path A bridge):** el front pide la lista con `page:1, pageSize:200` (ver "Contrato de la lista (d1)") y trae el set completo del unit en una página (⚠️ cap server-side de 200); el filtrado por texto/estado/pago/descuento/fecha y el ordenamiento por columna (`sortReferrals`, default `fecha desc`) se hacen en el frontend sobre esos datos. La lógica vive en `src/lib/referralFilters.js` (extraída de los componentes y testeada). Aunque d1 sabe filtrar `unit/status/search` server-side, el front **no** delega esos filtros para no mezclar con los que sólo existen client-side.
+- **Sufijo de entorno (`VITE_N8N_ENV_SUFFIX`):** dev vs prod se resuelve con una sola env var de sufijo por scope de Vercel, no con bases distintos ni `if` en código (el host es el mismo). `src/api/hubspot.test.js` cubre el armado de URLs con sufijo vacío y `-prod`, y los params de paginación.
+- **Detalle read-only:** se eliminó el formulario de edición de estados/fechas; el detalle solo muestra datos. La única mutación desde el detalle es guardar datos fiscales del referrer (`FISCAL_UPDATE`), que relanza el pago.
+- **KPIs:** "Pending" se calcula client-side como referrals en estado `created` sobre el unit cargado; "Total Referrers" muestra `0` (no `—`) cuando está vacío; el botón "Refresh" refetchea KPIs **y** lista (antes solo la lista).
+- **Paginación client-side:** PAGE_SIZE = 20, calculado sobre `displayRows` (agrupado por referrer) ya ordenado.
 - **Dashboard agrupa por referrer:** `displayRows` muestra una fila por referrer (el referral más reciente). La exportación Excel usa `filtered` (todos los referrals individuales).
 - **Auth de usuario:** login con Google restringido a `@prophero.com`; el front manda el ID token (`Authorization: Bearer`) y n8n valida el JWT server-side. (Antes: API key en header — migrado jun 2026.)
 - **`referralHsId` como identificador de ruta:** `/referral/:id` usa el ID interno de HubSpot.
@@ -108,4 +121,4 @@ Todos los endpoints reciben POST con `Authorization: Bearer <ID token de Google>
 
 ## Próximos pasos
 
-- **Paginación server-side (cuando el volumen supere ~200):** la API `dashboard-referrals-list` está capada en `limit: 200` server-side y el filtrado es client-side, así que opera solo sobre esos 200. Cuando los referrals pasen de 200, el front no ve el resto → habrá que mover paginación/filtrado al backend (n8n). Hoy no es problema; tenerlo en el radar.
+- **Refactor server-side completo (cuando el volumen supere ~200):** hoy se usa el **Path A bridge** (`pageSize:200` + todo client-side), capado en 200. Cuando los referrals pasen de 200, el front no ve el resto → habrá que delegar paginación + orden + filtros al backend. El d1 ya pagina y filtra `unit/status/search`; **falta** en n8n: filtros server-side de `referrer_payment_status`, `referido_discount_status` y rango de fechas, y resolver el **group-by-referrer** server-side (el dashboard muestra una fila por referrer, que no mapea a una paginación de referrals crudos). Es trabajo coordinado front + n8n, no un cutover.
