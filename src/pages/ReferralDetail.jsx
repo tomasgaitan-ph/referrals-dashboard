@@ -1,12 +1,28 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useReferralDetail } from '../hooks/useReferralDetail'
 import { useReferrals } from '../hooks/useReferrals'
-import { updateReferrerFiscalAndPay } from '../api/hubspot'
+import { markReferrerPaid } from '../api/hubspot'
+import { referrerPaymentStatus } from '../lib/referralFilters'
+import { latestDataUpdate, formatLastUpdated } from '../lib/lastUpdated'
 import StatusBadge from '../components/StatusBadge'
 import Toast from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
+
+// Dealstage de HubSpot que habilita el pago manual al referrer (pre-settlement).
+const PRE_SETTLEMENT_STAGE = '257909958'
+
+// Labels legibles para los dealstage IDs conocidos. Para IDs no mapeados se
+// muestra el ID crudo (la lista de stages no está disponible client-side).
+const DEAL_STAGE_LABELS = {
+  [PRE_SETTLEMENT_STAGE]: 'Pre-settlement',
+}
+
+function dealStageLabel(stage) {
+  if (!stage) return '—'
+  return DEAL_STAGE_LABELS[stage] ?? stage
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -51,17 +67,20 @@ function Field({ label, children }) {
   )
 }
 
-function FormInput({ label, value, onChange, placeholder, missing }) {
+function ChecklistItem({ met, children }) {
   return (
-    <div>
-      <label className="flex items-center gap-1.5 text-xs text-slate-500 mb-1">
-        {label}
-        {missing && <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-amber-700 text-[10px] font-medium">Missing</span>}
-      </label>
-      <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder || ""}
-        className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-colors focus:ring-2 ${missing && !value ? "border-amber-300 focus:border-amber-400 focus:ring-amber-100" : "border-slate-200 focus:border-secondary focus:ring-secondary/20"}`}
-      />
-    </div>
+    <li className={`flex items-center gap-2 text-xs ${met ? 'text-emerald-700' : 'text-slate-400'}`}>
+      {met ? (
+        <svg className="h-4 w-4 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      ) : (
+        <svg className="h-4 w-4 shrink-0 text-slate-300" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      )}
+      {children}
+    </li>
   )
 }
 
@@ -94,24 +113,22 @@ export default function ReferralDetail() {
   const { data: listData } = useReferrals()
 
   const [toast, setToast] = useState(null)
-  const [fiscalForm, setFiscalForm] = useState({ iban: "", nif: "", address: "" })
-  const [confirmFiscal, setConfirmFiscal] = useState(false)
+  const [confirmPay, setConfirmPay] = useState(false)
 
-  useEffect(() => {
-    if (!data?.referrer) return
-    const r = data.referrer
-    setFiscalForm({ iban: r.iban ?? "", nif: r.nif ?? "", address: r.address ?? "" })
-  }, [data])
-
-  const { mutate: saveFiscal, isPending: savingFiscal } = useMutation({
-    mutationFn: () => updateReferrerFiscalAndPay(id, referrer?.id, fiscalForm),
-    onSuccess: () => {
+  const { mutate: markPaid, isPending: marking } = useMutation({
+    mutationFn: () => markReferrerPaid(id),
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["referral", id] })
       queryClient.invalidateQueries({ queryKey: ["referrals"] })
       queryClient.invalidateQueries({ queryKey: ["kpis"] })
-      setToast({ message: "Fiscal data saved and payment relaunched", type: "success" })
+      // El back responde 200 { info } cuando ya estaba pagado (idempotente).
+      setToast(
+        result?.info
+          ? { message: "Referrer was already marked as paid", type: "info" }
+          : { message: "Referrer marked as paid", type: "success" },
+      )
     },
-    onError: (err) => setToast({ message: err.message ?? "Error saving fiscal data", type: "error" }),
+    onError: (err) => setToast({ message: err.message ?? "Error marking referrer as paid", type: "error" }),
   })
 
   function handleRefetch() {
@@ -125,8 +142,14 @@ export default function ReferralDetail() {
   const referido = data?.referido
   const deal     = data?.deal
 
-  const missingFiscal = referrer ? ["iban","nif","address"].filter(f => !referrer[f]) : []
+  // "last updated" único: mismo valor que el header del dashboard y el recordatorio.
+  const lastUpdated = latestDataUpdate(queryClient)
+
   const alreadyPaid = referral?.referrer_payment_status === 'paid'
+  // El back habilita el pago manual sólo con el deal en pre-settlement y con
+  // real_settlement_date cargada. El front replica el guard (el back revalida).
+  const dealEligible = deal?.dealstage === PRE_SETTLEMENT_STAGE && !!deal?.real_settlement_date
+  const canMarkPaid = dealEligible && !alreadyPaid
 
   const siblings = useMemo(() => {
     if (!referrer?.referrer_code) return []
@@ -161,6 +184,11 @@ export default function ReferralDetail() {
             {hasSiblings && !isLoading && (
               <span className="text-xs text-white/40 tabular-nums">
                 {siblingIdx + 1} / {siblings.length}
+              </span>
+            )}
+            {lastUpdated > 0 && (
+              <span className="text-xs text-white/50 tabular-nums">
+                last updated {formatLastUpdated(lastUpdated)}
               </span>
             )}
             <button
@@ -203,7 +231,8 @@ export default function ReferralDetail() {
                     <dl className="space-y-3">
                       <Field label="Name">{deal.dealname ?? '—'}</Field>
                       <Field label="Pipeline">{deal.pipeline ?? '—'}</Field>
-                      <Field label="Stage">{deal.dealstage ?? '—'}</Field>
+                      <Field label="Stage">{dealStageLabel(deal.dealstage)}</Field>
+                      <Field label="Settlement date">{formatDate(deal.real_settlement_date)}</Field>
                       <div className="pt-1">
                         <a
                           href={deal.hubspotUrl}
@@ -250,7 +279,7 @@ export default function ReferralDetail() {
                       <StatusBadge status={referral?.referral_status} />
                     </Field>
                     <Field label="Referrer payment">
-                      <StatusBadge status={referral?.referrer_payment_status} />
+                      <StatusBadge status={referrerPaymentStatus(referral)} />
                     </Field>
                     <Field label="Referrer payment date">
                       <span className="font-mono text-xs">{formatDate(referral?.referrer_payment_date)}</span>
@@ -272,33 +301,38 @@ export default function ReferralDetail() {
               )}
             </div>
 
-            {/* Fila 2: Referrer fiscal data */}
-            {!isLoading && referrer && (
-              <Card title="Referrer fiscal data">
-                <div className="space-y-3">
-                  <FormInput label="IBAN" value={fiscalForm.iban} onChange={v => setFiscalForm(p => ({...p, iban: v}))} placeholder="ES00 0000 0000 00 0000000000" missing={!referrer?.iban} />
-                  <FormInput label="NIF" value={fiscalForm.nif} onChange={v => setFiscalForm(p => ({...p, nif: v}))} placeholder="12345678A" missing={!referrer?.nif} />
-                  <FormInput label="Address" value={fiscalForm.address} onChange={v => setFiscalForm(p => ({...p, address: v}))} placeholder="Street, city, country" missing={!referrer?.address} />
-                </div>
-                <div className="mt-4 pt-4 border-t border-slate-100">
-                  <button onClick={() => setConfirmFiscal(true)} disabled={savingFiscal || alreadyPaid || !referrer?.id} className="w-full flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-white hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]">
-                    {savingFiscal
-                      ? <><svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Saving and relaunching payment…</>
-                      : <><svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>Save and relaunch payment</>
+            {/* Fila 2: Referrer payment (marcado manual) */}
+            {!isLoading && referral && (
+              <Card title="Referrer payment">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-slate-500">
+                    Mark the €500 referrer payment as paid once finance has completed the transfer.
+                  </p>
+                  <button
+                    onClick={() => setConfirmPay(true)}
+                    disabled={marking || !canMarkPaid}
+                    className="shrink-0 flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-white hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                  >
+                    {marking
+                      ? <><svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Marking…</>
+                      : <><svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>Mark as paid</>
                     }
                   </button>
-                  {alreadyPaid && (
-                    <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-emerald-600">
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                      Payment already completed — relaunch disabled.
-                    </p>
-                  )}
-                  {!alreadyPaid && !referrer?.id && (
-                    <p className="mt-2 text-center text-xs text-slate-400">
-                      Referrer ID unavailable — cannot relaunch payment.
-                    </p>
-                  )}
                 </div>
+                {alreadyPaid ? (
+                  <p className="mt-3 flex items-center gap-1.5 text-xs text-emerald-600">
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                    Referrer payment already completed.
+                  </p>
+                ) : (
+                  <div className="mt-4 pt-3 border-t border-slate-100">
+                    <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-slate-400">Requirements to enable</p>
+                    <ul className="space-y-1.5">
+                      <ChecklistItem met={deal?.dealstage === PRE_SETTLEMENT_STAGE}>Deal in pre-settlement</ChecklistItem>
+                      <ChecklistItem met={!!deal?.real_settlement_date}>Settlement date set</ChecklistItem>
+                    </ul>
+                  </div>
+                )}
               </Card>
             )}
 
@@ -309,35 +343,21 @@ export default function ReferralDetail() {
               {isLoading ? <SkeletonCard lines={6} /> : (
                 <Card title="Referrer">
                   {referrer ? (
-                    <>
-                      {missingFiscal.length > 0 && (
-                        <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3">
-                          <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
-                          <div>
-                            <p className="text-xs font-semibold text-amber-800">Incomplete fiscal data</p>
-                            <p className="text-xs text-amber-700 mt-0.5">Missing: <span className="font-mono font-medium">{missingFiscal.join(", ")}</span></p>
-                          </div>
-                        </div>
-                      )}
-                      <dl className="space-y-3">
-                        <Field label="Name">{fullName(referrer)}</Field>
-                        <Field label="Email">
-                          <a href={`mailto:${referrer.email}`} className="text-secondary hover:underline break-all">
-                            {referrer.email ?? '—'}
-                          </a>
-                        </Field>
-                        <Field label="Referrer code">
-                          <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded">
-                            {referrer.referrer_code ?? '—'}
-                          </span>
-                        </Field>
-                        <Field label="Total referrals">{referrer.total_referrals ?? '—'}</Field>
-                        <Field label="Total earned">{formatEur(referrer.total_earned)}</Field>
-                        {referrer.iban && <Field label="IBAN"><span className="font-mono text-xs break-all">{referrer.iban}</span></Field>}
-                        {referrer.nif  && <Field label="NIF"><span className="font-mono text-xs">{referrer.nif}</span></Field>}
-                        {referrer.address && <Field label="Address">{referrer.address}</Field>}
-                      </dl>
-                    </>
+                    <dl className="space-y-3">
+                      <Field label="Name">{fullName(referrer)}</Field>
+                      <Field label="Email">
+                        <a href={`mailto:${referrer.email}`} className="text-secondary hover:underline break-all">
+                          {referrer.email ?? '—'}
+                        </a>
+                      </Field>
+                      <Field label="Referrer code">
+                        <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded">
+                          {referrer.referrer_code ?? '—'}
+                        </span>
+                      </Field>
+                      <Field label="Total referrals">{referrer.total_referrals ?? '—'}</Field>
+                      <Field label="Total earned">{formatEur(referrer.total_earned)}</Field>
+                    </dl>
                   ) : (
                     <p className="text-sm text-slate-400">No referrer associated.</p>
                   )}
@@ -377,13 +397,13 @@ export default function ReferralDetail() {
       )}
 
       <ConfirmDialog
-        open={confirmFiscal}
-        title="Relaunch payment"
-        message={`This saves the fiscal data and relaunches the €${Number(referral?.referrer_amount ?? 500)} payment to the referrer. It triggers a real payment. Continue?`}
-        confirmLabel={savingFiscal ? 'Relaunching…' : 'Relaunch payment'}
-        loading={savingFiscal}
-        onConfirm={() => { saveFiscal(); setConfirmFiscal(false) }}
-        onClose={() => setConfirmFiscal(false)}
+        open={confirmPay}
+        title="Mark referrer as paid"
+        message="This marks the €500 referrer payment as paid and updates the referral status. Confirm only after finance has completed the transfer."
+        confirmLabel={marking ? 'Marking…' : 'Mark as paid'}
+        loading={marking}
+        onConfirm={() => { markPaid(); setConfirmPay(false) }}
+        onClose={() => setConfirmPay(false)}
       />
 
       {hasSiblings && !isLoading && (

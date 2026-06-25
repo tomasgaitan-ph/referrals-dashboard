@@ -24,7 +24,7 @@ const ENDPOINTS = {
   LIST: `/webhook/dashboard-referrals-list${ENV_SUFFIX}`,
   DETAIL: `/webhook/dashboard-referral-detail${ENV_SUFFIX}`,
   KPIS: `/webhook/dashboard-referrals-kpis${ENV_SUFFIX}`,
-  FISCAL_UPDATE: `/webhook/dashboard-update-referrer-fiscal${ENV_SUFFIX}`,
+  MARK_REFERRER_PAID: `/webhook/dashboard-mark-referrer-paid${ENV_SUFFIX}`,
 }
 
 // La lista (d1) pagina server-side (default pageSize 20, cap 200). Pedimos una
@@ -60,7 +60,18 @@ async function request(endpoint, body = {}) {
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new ApiError(res.status, `Error ${res.status}: ${text || res.statusText}`)
+    // El back devuelve el motivo en JSON ({ error } / { message }); preferimos ese
+    // mensaje legible (ej. 422 de mark-paid) antes que el body crudo.
+    let detail = text || res.statusText
+    if (text) {
+      try {
+        const parsed = JSON.parse(text)
+        detail = parsed.error || parsed.message || text
+      } catch {
+        // body no-JSON: dejamos el texto tal cual
+      }
+    }
+    throw new ApiError(res.status, detail)
   }
 
   const text = await res.text().catch(() => '')
@@ -84,7 +95,10 @@ export function fetchKPIs({ unit = null } = {}) {
   return request(ENDPOINTS.KPIS, { unit })
 }
 
-export function updateReferrerFiscalAndPay(referralId, referrerContactId, fiscalData) {
-  const { iban, nif, address } = fiscalData
-  return request(ENDPOINTS.FISCAL_UPDATE, { referralId, referrerContactId, iban, nif, address })
+// Marca el pago al referrer como pagado (acción manual desde el detalle). El back
+// revalida (deal en pre-settlement + real_settlement_date) y es idempotente:
+// 200 { success, action } al marcar, 200 { info } si ya estaba, 422 { error } si
+// no aplica. Setea referrer_payment_status=paid, referral_status=paid y suma €500.
+export function markReferrerPaid(referralId) {
+  return request(ENDPOINTS.MARK_REFERRER_PAID, { referralId })
 }

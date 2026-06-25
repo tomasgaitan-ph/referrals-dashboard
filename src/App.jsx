@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import ReferralDetail from './pages/ReferralDetail'
 import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
+import GlobalRefreshReminder from './components/GlobalRefreshReminder'
 import { AuthProvider } from './auth/AuthContext'
 
 const queryClient = new QueryClient({
@@ -41,6 +42,7 @@ export default function App() {
               element={<ProtectedRoute><ReferralDetail /></ProtectedRoute>}
             />
           </Routes>
+          <GlobalRefreshReminder />
         </AuthProvider>
       </BrowserRouter>
     </PersistQueryClientProvider>

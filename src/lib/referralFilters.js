@@ -38,6 +38,55 @@ export function filterReferrals(list, {
   return result
 }
 
+// Estado de pago del referrer para mostrar (solo display, no toca el dato crudo
+// ni los filtros): si el pago está pendiente pero el descuento ya se aplicó, el
+// referrer está listo para transferir → 'ready_to_transfer'. Resto: valor crudo.
+export function referrerPaymentStatus(referral) {
+  const payment = referral?.referrer_payment_status
+  if (payment === 'pending' && referral?.referido_discount_status === 'applied') {
+    return 'ready_to_transfer'
+  }
+  return payment
+}
+
+// Rango [start, end] del período pedido relativo a `now`. Semana = lunes–domingo;
+// mes = mes calendario. Devuelve null para 'all'/vacío (sin filtro).
+function periodRange(period, now) {
+  if (period === 'week') {
+    const dow = (now.getDay() + 6) % 7 // 0 = lunes … 6 = domingo
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow, 0, 0, 0, 0)
+    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59, 999)
+    return { start, end }
+  }
+  if (period === 'month') {
+    return {
+      start: new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0),
+      end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+    }
+  }
+  if (period === 'last_month') {
+    return {
+      start: new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0),
+      end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999),
+    }
+  }
+  return null
+}
+
+// Filtra por settlement date (deal.real_settlement_date, anidado en el objeto deal
+// que devuelve d1) dentro del período elegido. 'all'/vacío no filtra. Referrals sin
+// deal o sin settlement date quedan fuera de cualquier período acotado.
+export function filterByPeriod(list, period, now = new Date()) {
+  const range = periodRange(period, now)
+  if (!range) return list ?? []
+  return (list ?? []).filter(r => {
+    const settlement = r.deal?.real_settlement_date
+    if (!settlement) return false
+    const t = new Date(settlement)
+    return t >= range.start && t <= range.end
+  })
+}
+
 function fullName(c) {
   if (!c) return ''
   return [c.firstname, c.lastname].filter(Boolean).join(' ')

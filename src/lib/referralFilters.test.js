@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterReferrals, groupByReferrer, sortReferrals } from './referralFilters'
+import { filterReferrals, filterByPeriod, referrerPaymentStatus, groupByReferrer, sortReferrals } from './referralFilters'
 
 // Referral de prueba con defaults razonables, sobreescribibles por test.
 function ref(overrides = {}) {
@@ -181,5 +181,92 @@ describe('sortReferrals', () => {
     const before = list.map(r => r.referralHsId)
     sortReferrals(list, 'fecha', 'asc')
     expect(list.map(r => r.referralHsId)).toEqual(before)
+  })
+})
+
+describe('referrerPaymentStatus', () => {
+  it("pago pending + descuento applied → 'ready_to_transfer'", () => {
+    expect(referrerPaymentStatus(ref({ referrer_payment_status: 'pending', referido_discount_status: 'applied' }))).toBe('ready_to_transfer')
+  })
+  it("pago pending pero descuento NO applied → 'pending'", () => {
+    expect(referrerPaymentStatus(ref({ referrer_payment_status: 'pending', referido_discount_status: 'pending' }))).toBe('pending')
+    expect(referrerPaymentStatus(ref({ referrer_payment_status: 'pending', referido_discount_status: 'not_applicable' }))).toBe('pending')
+  })
+  it("pago paid → 'paid' (aunque el descuento esté applied)", () => {
+    expect(referrerPaymentStatus(ref({ referrer_payment_status: 'paid', referido_discount_status: 'applied' }))).toBe('paid')
+  })
+  it('referral nulo/sin status no rompe', () => {
+    expect(referrerPaymentStatus(null)).toBeUndefined()
+    expect(referrerPaymentStatus({})).toBeUndefined()
+  })
+})
+
+describe('filterByPeriod (sobre deal.real_settlement_date)', () => {
+  // now fijo: miércoles 2026-06-17 (semana ISO lun 15 – dom 21 jun)
+  const now = new Date(2026, 5, 17, 12, 0, 0)
+  // El settlement date viene anidado en deal (forma real de d1).
+  const withSettlement = (id, date) => ref({ referralHsId: id, deal: { dealname: 'Deal', real_settlement_date: date } })
+
+  it("'all'/vacío no filtra (devuelve todo, incluso sin settlement date)", () => {
+    const list = [withSettlement('a', '2026-01-01'), withSettlement('b', null)]
+    expect(filterByPeriod(list, '', now)).toHaveLength(2)
+    expect(filterByPeriod(list, 'all', now)).toHaveLength(2)
+  })
+
+  it('lista nula/indefinida devuelve []', () => {
+    expect(filterByPeriod(null, 'month', now)).toEqual([])
+    expect(filterByPeriod(undefined, 'week', now)).toEqual([])
+  })
+
+  it("excluye referrals sin deal o sin settlement date en períodos acotados", () => {
+    const list = [
+      withSettlement('sin-fecha', null),
+      ref({ referralHsId: 'sin-deal', deal: null }),
+    ]
+    expect(filterByPeriod(list, 'month', now)).toEqual([])
+  })
+
+  it("'week' incluye lunes y domingo de la semana actual y excluye fuera", () => {
+    const list = [
+      withSettlement('lun', '2026-06-15T00:00:00'),
+      withSettlement('dom', '2026-06-21T23:00:00'),
+      withSettlement('prev', '2026-06-14T23:59:59'),
+      withSettlement('next', '2026-06-22T00:00:00'),
+    ]
+    expect(filterByPeriod(list, 'week', now).map(r => r.referralHsId)).toEqual(['lun', 'dom'])
+  })
+
+  it("'month' incluye sólo junio 2026", () => {
+    const list = [
+      withSettlement('jun1', '2026-06-01T00:00:00'),
+      withSettlement('jun30', '2026-06-30T23:00:00'),
+      withSettlement('may', '2026-05-31T23:59:59'),
+      withSettlement('jul', '2026-07-01T00:00:00'),
+    ]
+    expect(filterByPeriod(list, 'month', now).map(r => r.referralHsId)).toEqual(['jun1', 'jun30'])
+  })
+
+  it("acepta el formato ISO date corto de HubSpot (YYYY-MM-DD)", () => {
+    const list = [withSettlement('hoy', '2026-06-17')]
+    expect(filterByPeriod(list, 'month', now).map(r => r.referralHsId)).toEqual(['hoy'])
+    expect(filterByPeriod(list, 'week', now).map(r => r.referralHsId)).toEqual(['hoy'])
+  })
+
+  it("'last_month' incluye sólo mayo 2026", () => {
+    const list = [
+      withSettlement('may1', '2026-05-01T00:00:00'),
+      withSettlement('may31', '2026-05-31T23:00:00'),
+      withSettlement('jun', '2026-06-01T00:00:00'),
+    ]
+    expect(filterByPeriod(list, 'last_month', now).map(r => r.referralHsId)).toEqual(['may1', 'may31'])
+  })
+
+  it("'last_month' cruza el año (enero → diciembre anterior)", () => {
+    const jan = new Date(2026, 0, 10, 12, 0, 0)
+    const list = [
+      withSettlement('dec', '2025-12-15T00:00:00'),
+      withSettlement('jan', '2026-01-05T00:00:00'),
+    ]
+    expect(filterByPeriod(list, 'last_month', jan).map(r => r.referralHsId)).toEqual(['dec'])
   })
 })

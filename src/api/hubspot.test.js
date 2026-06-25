@@ -95,8 +95,38 @@ describe('sufijo de entorno (VITE_N8N_ENV_SUFFIX)', () => {
     expect(firstCall(fetchMock).url).toBe(`${BASE_URL}/webhook/dashboard-referrals-kpis-prod`)
 
     fetchMock.mockClear()
-    await api.updateReferrerFiscalAndPay('abc123', 'c1', { iban: 'ES', nif: 'X', address: 'Calle' })
-    expect(firstCall(fetchMock).url).toBe(`${BASE_URL}/webhook/dashboard-update-referrer-fiscal-prod`)
+    await api.markReferrerPaid('abc123')
+    expect(firstCall(fetchMock).url).toBe(`${BASE_URL}/webhook/dashboard-mark-referrer-paid-prod`)
+  })
+})
+
+describe('markReferrerPaid', () => {
+  it('manda { referralId } al endpoint de mark-paid', async () => {
+    const fetchMock = mockFetchOk({ success: true, action: 'referrer_marked_paid' })
+    const { markReferrerPaid } = await loadApi()
+
+    const result = await markReferrerPaid('hs-42')
+
+    const { url, body, options } = firstCall(fetchMock)
+    expect(url).toBe(`${BASE_URL}/webhook/dashboard-mark-referrer-paid`)
+    expect(options.method).toBe('POST')
+    expect(body).toEqual({ referralId: 'hs-42' })
+    expect(result).toEqual({ success: true, action: 'referrer_marked_paid' })
+  })
+
+  it('un 422 surfacea el campo error del body como mensaje del ApiError', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status: 422,
+      ok: false,
+      statusText: 'Unprocessable Entity',
+      text: async () => JSON.stringify({ error: 'Deal no está en pre-settlement o no tiene real_settlement_date' }),
+    }))
+    const { markReferrerPaid } = await loadApi()
+
+    await expect(markReferrerPaid('hs-42')).rejects.toMatchObject({
+      status: 422,
+      message: 'Deal no está en pre-settlement o no tiene real_settlement_date',
+    })
   })
 })
 

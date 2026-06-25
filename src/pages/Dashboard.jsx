@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useReferrals } from '../hooks/useReferrals'
 import { useKPIs } from '../hooks/useKPIs'
@@ -8,7 +9,8 @@ import ReferralTable from '../components/ReferralTable'
 import ExportModal from '../components/ExportModal'
 import Toast from '../components/Toast'
 import { useAuth } from '../auth/AuthContext'
-import { filterReferrals, groupByReferrer, sortReferrals } from '../lib/referralFilters'
+import { filterReferrals, filterByPeriod, groupByReferrer, sortReferrals } from '../lib/referralFilters'
+import { latestDataUpdate, formatLastUpdated } from '../lib/lastUpdated'
 
 const UNITS = [
   { value: null, label: 'All' },
@@ -34,6 +36,15 @@ const DISCOUNT_STATUS_OPTIONS = [
   { value: 'not_applicable', label: 'Not applicable' },
   { value: 'pending', label: 'Pending' },
   { value: 'applied', label: 'Applied' },
+]
+
+// Filtro por settlement date (real_settlement_date). Requiere que d1 devuelva ese
+// campo en la lista; sin él, los períodos acotados quedan vacíos.
+const PERIOD_OPTIONS = [
+  { value: '', label: 'Settlement period' },
+  { value: 'week', label: 'This week' },
+  { value: 'month', label: 'This month' },
+  { value: 'last_month', label: 'Last month' },
 ]
 
 function formatEur(n) {
@@ -102,6 +113,7 @@ function FilterSelect({ value, onChange, options }) {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { user, logout } = useAuth()
 
   const [unit,           setUnit]           = useState(null)
@@ -111,6 +123,7 @@ export default function Dashboard() {
   const [discountFilter, setDiscountFilter] = useState('')
   const [dateFrom,       setDateFrom]       = useState('')
   const [dateTo,         setDateTo]         = useState('')
+  const [period,         setPeriod]         = useState('')
   const [page,           setPage]           = useState(1)
   const [toast,          setToast]          = useState(null)
   const [showExport,     setShowExport]     = useState(false)
@@ -121,9 +134,12 @@ export default function Dashboard() {
     isLoading: referralsLoading,
     isError: referralsError,
     isFetching,
-    dataUpdatedAt,
     refetch,
   } = useReferrals({ unit })
+
+  // "last updated" único: el fetch más reciente entre lista/detalle/kpis (mismo
+  // valor que el header del detalle y el recordatorio).
+  const lastUpdated = latestDataUpdate(queryClient)
 
   const {
     data: kpisData,
@@ -139,10 +155,13 @@ export default function Dashboard() {
   }, [referralsData])
 
   const filtered = useMemo(
-    () => filterReferrals(referralsData?.referrals ?? [], {
-      search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo,
-    }),
-    [referralsData, search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo]
+    () => filterByPeriod(
+      filterReferrals(referralsData?.referrals ?? [], {
+        search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo,
+      }),
+      period,
+    ),
+    [referralsData, search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo, period]
   )
 
   // Agrupar por referrer: una fila por referrer con su referral más reciente
@@ -157,6 +176,15 @@ export default function Dashboard() {
     [referralsData]
   )
 
+  // KPI "Ready to Transfer": pagos al referrer pendientes con el descuento ya
+  // aplicado (client-side, sobre el unit cargado). Cada uno es un pago de €500.
+  const readyToTransferCount = useMemo(
+    () => (referralsData?.referrals ?? []).filter(
+      r => r.referrer_payment_status === 'pending' && r.referido_discount_status === 'applied'
+    ).length,
+    [referralsData]
+  )
+
   const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE))
   const referrals  = sortedRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
@@ -166,9 +194,9 @@ export default function Dashboard() {
       : { key, dir: 'asc' })
   }
 
-  useEffect(() => { setPage(1) }, [search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo, unit, sort])
+  useEffect(() => { setPage(1) }, [search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo, period, unit, sort])
 
-  const hasActiveFilters = Boolean(search || statusFilter || paymentFilter || discountFilter || dateFrom || dateTo)
+  const hasActiveFilters = Boolean(search || statusFilter || paymentFilter || discountFilter || dateFrom || dateTo || period)
 
   function handleRefetch() {
     Promise.all([refetch(), refetchKpis()])
@@ -183,6 +211,7 @@ export default function Dashboard() {
     setDiscountFilter('')
     setDateFrom('')
     setDateTo('')
+    setPeriod('')
   }
 
   return (
@@ -215,9 +244,9 @@ export default function Dashboard() {
 
             {/* Last updated + Refresh */}
             <div className="flex items-center gap-2">
-              {dataUpdatedAt > 0 && (
+              {lastUpdated > 0 && (
                 <span className="text-xs text-white/50 tabular-nums">
-                  last updated {new Date(dataUpdatedAt).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} - {new Date(dataUpdatedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  last updated {formatLastUpdated(lastUpdated)}
                 </span>
               )}
               <button
@@ -270,7 +299,7 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-5">
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
           <KPICard
             title="Total Referrals"
             value={totalReferrals ?? '—'}
@@ -292,6 +321,12 @@ export default function Dashboard() {
             loading={kpisLoading}
           />
           <KPICard
+            title="Ready to Transfer"
+            value={readyToTransferCount}
+            subtitle="referrer payments pending"
+            loading={referralsLoading}
+          />
+          <KPICard
             title="Pending"
             value={pendingCount}
             subtitle="in created status"
@@ -310,6 +345,7 @@ export default function Dashboard() {
             <FilterSelect value={statusFilter}   onChange={setStatusFilter}   options={REFERRAL_STATUS_OPTIONS} />
             <FilterSelect value={paymentFilter}  onChange={setPaymentFilter}  options={PAYMENT_STATUS_OPTIONS}  />
             <FilterSelect value={discountFilter} onChange={setDiscountFilter} options={DISCOUNT_STATUS_OPTIONS} />
+            <FilterSelect value={period}         onChange={setPeriod}         options={PERIOD_OPTIONS} />
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}

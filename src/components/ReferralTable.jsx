@@ -1,4 +1,5 @@
 import StatusBadge from './StatusBadge'
+import { referrerPaymentStatus } from '../lib/referralFilters'
 
 const COLUMNS = [
   { key: 'referral_id', label: 'ID',               width: 'w-36' },
@@ -138,7 +139,7 @@ export default function ReferralTable({ referrals = [], loading = false, onRowCl
                 <StatusBadge status={r.referral_status} />
               </td>
               <td className="px-4 py-3.5">
-                <StatusBadge status={r.referrer_payment_status} />
+                <StatusBadge status={referrerPaymentStatus(r)} />
               </td>
               <td className="px-4 py-3.5">
                 <StatusBadge status={r.referido_discount_status} />
