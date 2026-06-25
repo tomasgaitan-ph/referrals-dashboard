@@ -18,7 +18,6 @@ const COLUMNS = [
 
 const UNIT_CLASSES = {
   SP: 'bg-blue-50 text-blue-700 border-blue-200',
-  VH: 'bg-violet-50 text-violet-700 border-violet-200',
 }
 
 function formatDate(dateStr) {

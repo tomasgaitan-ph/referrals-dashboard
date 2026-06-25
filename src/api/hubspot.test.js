@@ -74,7 +74,7 @@ describe('sufijo de entorno (VITE_N8N_ENV_SUFFIX)', () => {
   it('sufijo vacío → paths dev (sandbox)', async () => {
     const fetchMock = mockFetchOk()
     const { fetchReferralsList } = await loadApi({ suffix: '' })
-    await fetchReferralsList({ unit: 'VH' })
+    await fetchReferralsList({ unit: 'SP' })
 
     expect(firstCall(fetchMock).url).toBe(`${BASE_URL}/webhook/dashboard-referrals-list`)
   })
@@ -83,7 +83,7 @@ describe('sufijo de entorno (VITE_N8N_ENV_SUFFIX)', () => {
     const fetchMock = mockFetchOk({})
     const api = await loadApi({ suffix: '-prod' })
 
-    await api.fetchReferralsList({ unit: 'VH' })
+    await api.fetchReferralsList({ unit: 'SP' })
     expect(firstCall(fetchMock).url).toBe(`${BASE_URL}/webhook/dashboard-referrals-list-prod`)
 
     fetchMock.mockClear()
@@ -91,7 +91,7 @@ describe('sufijo de entorno (VITE_N8N_ENV_SUFFIX)', () => {
     expect(firstCall(fetchMock).url).toBe(`${BASE_URL}/webhook/dashboard-referral-detail-prod`)
 
     fetchMock.mockClear()
-    await api.fetchKPIs({ unit: 'VH' })
+    await api.fetchKPIs({ unit: 'SP' })
     expect(firstCall(fetchMock).url).toBe(`${BASE_URL}/webhook/dashboard-referrals-kpis-prod`)
 
     fetchMock.mockClear()

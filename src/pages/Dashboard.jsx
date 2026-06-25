@@ -13,12 +13,6 @@ import logo from '../assets/logoph.png'
 import { filterReferrals, filterByPeriod, groupByReferrer, sortReferrals } from '../lib/referralFilters'
 import { latestDataUpdate, formatLastUpdated } from '../lib/lastUpdated'
 
-const UNITS = [
-  { value: null, label: 'All' },
-  { value: 'SP',  label: 'SP' },
-  { value: 'VH',  label: 'VH' },
-]
-
 const REFERRAL_STATUS_OPTIONS = [
   { value: '', label: 'Referral status' },
   { value: 'created', label: 'Created' },
@@ -117,7 +111,9 @@ export default function Dashboard() {
   const queryClient = useQueryClient()
   const { user, logout } = useAuth()
 
-  const [unit,           setUnit]           = useState(null)
+  // Programa fijo en SP — VH discontinuado (jun 2026). Se ocultó el filtro de la UI;
+  // `unit` se mantiene en estado (null = todos, que ahora son SP) por si VH vuelve.
+  const [unit] = useState(null)
   const [search,         setSearch]         = useState('')
   const [statusFilter,   setStatusFilter]   = useState('')
   const [paymentFilter,  setPaymentFilter]  = useState('')
@@ -229,23 +225,6 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Unit selector */}
-            <div className="flex items-center gap-0.5 rounded-lg bg-white/10 p-1">
-              {UNITS.map(u => (
-                <button
-                  key={String(u.value)}
-                  onClick={() => setUnit(u.value)}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
-                    unit === u.value
-                      ? 'bg-white text-primary shadow-sm'
-                      : 'text-white/70 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  {u.label}
-                </button>
-              ))}
-            </div>
-
             {/* Last updated + Refresh */}
             <div className="flex items-center gap-2">
               {lastUpdated > 0 && (
