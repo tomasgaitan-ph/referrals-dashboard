@@ -38,11 +38,11 @@ export function AuthProvider({ children }) {
   const login = useCallback((credential) => {
     const claims = decodeJwt(credential)
     if (!isProphero(claims)) {
-      setAuthError('Acceso permitido solo con cuentas @prophero.com.')
+      setAuthError('Access is allowed only with @prophero.com accounts.')
       return false
     }
     if (isExpired(claims)) {
-      setAuthError('El token expiró. Probá iniciar sesión de nuevo.')
+      setAuthError('Your session expired. Please sign in again.')
       return false
     }
     sessionStorage.setItem(STORAGE_KEY, credential)

@@ -9,6 +9,7 @@ import ReferralTable from '../components/ReferralTable'
 import ExportModal from '../components/ExportModal'
 import Toast from '../components/Toast'
 import { useAuth } from '../auth/AuthContext'
+import logo from '../assets/logoph.png'
 import { filterReferrals, filterByPeriod, groupByReferrer, sortReferrals } from '../lib/referralFilters'
 import { latestDataUpdate, formatLastUpdated } from '../lib/lastUpdated'
 
@@ -220,9 +221,12 @@ export default function Dashboard() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-primary shadow-[0_1px_12px_rgba(16,21,66,0.25)]">
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
-          <span className="text-white font-semibold tracking-tight text-sm">
-            PropHero · Referrals
-          </span>
+          <div className="flex items-center gap-2.5">
+            <img src={logo} alt="PropHero" className="h-8 w-8 rounded-md" />
+            <span className="text-white font-semibold tracking-tight text-sm">
+              PropHero · Referrals
+            </span>
+          </div>
 
           <div className="flex items-center gap-2">
             {/* Unit selector */}

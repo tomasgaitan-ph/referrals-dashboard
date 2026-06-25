@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import logomark from '../assets/logo.svg'
+import logo from '../assets/logoph.png'
 import brandTiles from '../assets/hero.png'
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -22,11 +22,11 @@ function useGisReady() {
   return ready
 }
 
-// Wordmark de marca: logomark blanco + "PropHero" en tipografía display.
+// Wordmark de marca: logo PropHero + "PropHero" en tipografía display.
 function Wordmark({ className = '' }) {
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
-      <img src={logomark} alt="" className="h-7 w-auto" />
+      <img src={logo} alt="PropHero" className="h-9 w-9 rounded-lg" />
       <span className="font-display text-xl font-semibold tracking-tight text-white">PropHero</span>
     </div>
   )
@@ -49,7 +49,7 @@ export default function Login() {
   useEffect(() => {
     if (!gisReady || isAuthenticated) return
     if (!CLIENT_ID) {
-      setAuthError('Falta configurar VITE_GOOGLE_CLIENT_ID.')
+      setAuthError('VITE_GOOGLE_CLIENT_ID is not configured.')
       return
     }
     const { id } = window.google.accounts
@@ -112,15 +112,15 @@ export default function Login() {
 
         <div className="relative max-w-md">
           <h2 className="font-display text-4xl font-semibold leading-[1.1] tracking-tight text-white text-balance">
-            Todos los referrals, en un solo panel.
+            All your referrals, in one place.
           </h2>
           <p className="mt-4 max-w-sm text-base leading-relaxed text-sky">
-            Seguí estados, pagos y descuentos de cada referral entre clientes de PropHero.
+            Track the status, payments and discounts of every referral between PropHero clients.
           </p>
         </div>
 
         <p className="relative text-xs font-medium tracking-wide text-white/40">
-          Herramienta interna · PropHero
+          Internal tool · PropHero
         </p>
       </aside>
 
@@ -129,17 +129,15 @@ export default function Login() {
         <div className="w-full max-w-sm">
           {/* Marca compacta para mobile (el panel de marca está oculto) */}
           <div className="mb-10 flex items-center gap-2.5 lg:hidden">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-space">
-              <img src={logomark} alt="" className="h-5 w-auto" />
-            </span>
+            <img src={logo} alt="PropHero" className="h-9 w-9 rounded-xl" />
             <span className="font-display text-lg font-semibold tracking-tight text-space">PropHero</span>
           </div>
 
           <h1 className="font-display text-2xl font-semibold tracking-tight text-space">
-            Iniciá sesión
+            Sign in
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-slate-500">
-            Accedé con tu cuenta de PropHero para gestionar los referrals.
+            Sign in with your PropHero account to manage referrals.
           </p>
 
           <div className="mt-8 flex min-h-[44px] items-center">
@@ -160,7 +158,7 @@ export default function Login() {
           )}
 
           <p className="mt-8 max-w-[320px] text-xs leading-relaxed text-slate-400">
-            El acceso está restringido a cuentas <span className="font-medium text-slate-500">@prophero.com</span>.
+            Access is restricted to <span className="font-medium text-slate-500">@prophero.com</span> accounts.
           </p>
         </div>
       </main>

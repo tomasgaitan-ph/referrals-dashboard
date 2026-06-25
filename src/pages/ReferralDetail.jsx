@@ -6,6 +6,7 @@ import { useReferrals } from '../hooks/useReferrals'
 import { markReferrerPaid } from '../api/hubspot'
 import { referrerPaymentStatus } from '../lib/referralFilters'
 import { latestDataUpdate, formatLastUpdated } from '../lib/lastUpdated'
+import logo from '../assets/logoph.png'
 import StatusBadge from '../components/StatusBadge'
 import Toast from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -167,6 +168,7 @@ export default function ReferralDetail() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-primary shadow-[0_1px_12px_rgba(16,21,66,0.25)]">
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center gap-3">
+          <img src={logo} alt="PropHero" className="h-8 w-8 rounded-md" />
           <Link
             to="/"
             className="flex items-center gap-1.5 text-white/60 hover:text-white transition-colors"
