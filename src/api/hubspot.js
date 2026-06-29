@@ -96,9 +96,11 @@ export function fetchKPIs({ unit = null } = {}) {
 }
 
 // Marca el pago al referrer como pagado (acción manual desde el detalle). El back
-// revalida (deal en pre-settlement + real_settlement_date) y es idempotente:
-// 200 { success, action } al marcar, 200 { info } si ya estaba, 422 { error } si
-// no aplica. Setea referrer_payment_status=paid, referral_status=paid y suma €500.
+// revalida la condición por producto (la misma que expone como canMarkReferrerPaid
+// en d2: SP = pre-settlement + fecha; VH/IH = Investment Ticket en Closed Won) y es
+// idempotente: 200 { success, action } al marcar, 200 { info } si ya estaba,
+// 422 { error } si no aplica. Setea referrer_payment_status=paid, referral_status=paid
+// y suma €500.
 export function markReferrerPaid(referralId) {
   return request(ENDPOINTS.MARK_REFERRER_PAID, { referralId })
 }

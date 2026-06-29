@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterReferrals, filterByPeriod, referrerPaymentStatus, groupByReferrer, sortReferrals } from './referralFilters'
+import { filterReferrals, filterByPeriod, referrerPaymentStatus, referrerPaymentButtonState, groupByReferrer, sortReferrals } from './referralFilters'
 
 // Referral de prueba con defaults razonables, sobreescribibles por test.
 function ref(overrides = {}) {
@@ -251,6 +251,33 @@ describe('referrerPaymentStatus', () => {
   it('referral nulo/sin status no rompe', () => {
     expect(referrerPaymentStatus(null)).toBeUndefined()
     expect(referrerPaymentStatus({})).toBeUndefined()
+  })
+})
+
+describe('referrerPaymentButtonState (prioridad paid > available > unavailable)', () => {
+  it("ya pagado → 'paid' (sin importar el flag del back)", () => {
+    expect(referrerPaymentButtonState({ referrer_payment_status: 'paid' }, false)).toBe('paid')
+    // Choque defensivo: aunque el back diga true, si ya está pagado gana 'paid'.
+    expect(referrerPaymentButtonState({ referrer_payment_status: 'paid' }, true)).toBe('paid')
+  })
+
+  it("no pagado + canMarkReferrerPaid true → 'available'", () => {
+    expect(referrerPaymentButtonState({ referrer_payment_status: 'pending' }, true)).toBe('available')
+  })
+
+  it("no pagado + canMarkReferrerPaid false → 'unavailable'", () => {
+    expect(referrerPaymentButtonState({ referrer_payment_status: 'pending' }, false)).toBe('unavailable')
+  })
+
+  it("flag ausente/no-booleano → 'unavailable' (sólo true habilita)", () => {
+    expect(referrerPaymentButtonState({ referrer_payment_status: 'pending' }, undefined)).toBe('unavailable')
+    expect(referrerPaymentButtonState({ referrer_payment_status: 'pending' }, null)).toBe('unavailable')
+    expect(referrerPaymentButtonState({ referrer_payment_status: 'pending' }, 'true')).toBe('unavailable')
+  })
+
+  it("referral nulo no rompe → 'unavailable' (o 'available' si el back lo habilita)", () => {
+    expect(referrerPaymentButtonState(null, undefined)).toBe('unavailable')
+    expect(referrerPaymentButtonState(null, true)).toBe('available')
   })
 })
 

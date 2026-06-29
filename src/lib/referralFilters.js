@@ -55,6 +55,19 @@ export function referrerPaymentStatus(referral) {
   return payment
 }
 
+// Estado del botón "Mark as paid" del detalle, por prioridad:
+//   'paid'        → ya pagado: mostrar "completed", sin botón.
+//   'available'   → el back habilita el pago ahora (canMarkReferrerPaid): botón ON.
+//   'unavailable' → todavía no corresponde: botón OFF (tooltip).
+// La condición por producto (SP = pre-settlement + fecha; VH/IH = Investment Ticket
+// en Closed Won) la calcula el back y llega ya resuelta en canMarkReferrerPaid; el
+// front no la conoce. 'paid' tiene prioridad sobre el flag (defensivo ante choque).
+export function referrerPaymentButtonState(referral, canMarkReferrerPaid) {
+  if (referral?.referrer_payment_status === 'paid') return 'paid'
+  if (canMarkReferrerPaid === true) return 'available'
+  return 'unavailable'
+}
+
 // Rango [start, end] del período pedido relativo a `now`. Semana = lunes–domingo;
 // mes = mes calendario. Devuelve null para 'all'/vacío (sin filtro).
 function periodRange(period, now) {
