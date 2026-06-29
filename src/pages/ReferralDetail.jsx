@@ -8,6 +8,7 @@ import { referrerPaymentStatus } from '../lib/referralFilters'
 import { latestDataUpdate, formatLastUpdated } from '../lib/lastUpdated'
 import logo from '../assets/logoph.png'
 import StatusBadge from '../components/StatusBadge'
+import ProgramBadge from '../components/ProgramBadge'
 import Toast from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
 
@@ -266,13 +267,7 @@ export default function ReferralDetail() {
                       <span className="font-mono text-xs">{referral?.unique_id ?? '—'}</span>
                     </Field>
                     <Field label="Program">
-                      {referral?.unit ? (
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold ${
-                          referral.unit === 'SP'
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : 'bg-violet-50 text-violet-700 border-violet-200'
-                        }`}>{referral.unit}</span>
-                      ) : '—'}
+                      <ProgramBadge productChoice={deal?.product_choice} />
                     </Field>
                     <Field label="Created date">
                       <span className="font-mono text-xs">{formatDate(referral?.created_date)}</span>

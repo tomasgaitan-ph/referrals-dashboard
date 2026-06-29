@@ -29,7 +29,9 @@ Definidos en `tailwind.config.js`:
 
 ## Estado actual
 
-App funcional y deployada. El dashboard muestra lista de referrals con filtros, KPIs, **columnas ordenables**, paginación (PAGE_SIZE = 20) y exportación a Excel. La columna/selector que antes se llamaba "Unit" ahora se muestra como **"Program"** en la UI (la variable interna sigue siendo `unit`).
+App funcional y deployada. El dashboard muestra lista de referrals con filtros, KPIs, **columnas ordenables**, paginación (PAGE_SIZE = 20) y exportación a Excel.
+
+**Programa (jun 2026):** la columna/campo "Program" se deriva de **`deal.product_choice`** (fuente de verdad de OPS), **no** de `unit` (que quedó hardcodeado en SP en el back y no es confiable). Mapeo de 3 programas en `src/lib/program.js` (`productChoiceToProgram()`): `Traditional`/`New Build`→`SP`, `ValueHero`→`VH`, `IreHero`→`IH`, null/vacío/desconocido→sin etiqueta (`—`). El chip lo pinta `ProgramBadge` (SP azul / VH violeta / IH teal), reusado en lista y detalle. El **filtro por programa** (pill group All/SP/VH/IH en el header) es **client-side** sobre el set cargado (sin parámetro nuevo al back), igual que el resto de los filtros; resetea a page 1 y queda fuera de "Clear filters" (segmentación primaria, como el viejo selector `unit`).
 
 **Añadidos jun 2026 (pago manual):**
 - **Badge "Ready to transfer":** estado de pago derivado (solo display) — cuando `referrer_payment_status==='pending'` y `referido_discount_status==='applied'`, el badge muestra "Ready to transfer" (amber, igual que pending) en vez de "Pending", en tabla y detalle. Lo calcula `referrerPaymentStatus()` en `referralFilters.js`; **no** toca el dato crudo ni los filtros.
@@ -65,6 +67,8 @@ El endpoint d1 pagina server-side: acepta `page` (default 1) y `pageSize` (defau
 
 > **d1 devuelve `deal.real_settlement_date` (jun 2026):** se agregó esa prop al objeto `deal` de cada referral (dev `qv07eEGAiAmdKTdj` + prod `d4B7uKmKuCTguLCy`, en los nodos "Prepare Detail Requests" y "Build Response"), espejo de d2. Lo usa el filtro client-side "Settlement period". Cambio aditivo; los typeIds de asociación de prod (233/235) quedaron intactos.
 
+> **d1 y d2 devuelven `deal.product_choice` (jun 2026):** valor interno del deal de OPS (`Traditional` | `New Build` | `ValueHero` | `IreHero`, o null/vacío hasta la etapa "Offer"). Es la **fuente de verdad del programa** (SP/VH/IH) que muestra y filtra el dashboard — reemplaza a `unit`, que quedó hardcodeado en SP y no es confiable. El filtro por programa es **client-side** (mapeo en `src/lib/program.js`); **no** se agregó parámetro server-side `program` a d1.
+
 > **Path A (bridge, cutover prod jun 2026):** el front manda `page:1, pageSize:200` y conserva el modelo client-side (filtrado / orden / group-by-referrer / export / KPIs sobre el set completo). Es equivalente a la UX previa, con el mismo cap de 200. El refactor server-side completo queda para cuando el volumen supere 200 (ver "Próximos pasos").
 
 > **`dashboard-referral-update` (wf-d3) dado de baja (cutover jun 2026):** era el endpoint de escritura del viejo formulario de edición. Al pasar el detalle a read-only quedó sin call sites; se **desactivó en n8n** (`active: false`, POST → 404) y se eliminó del front la función `updateReferral()` + la constante `UPDATE`. Si el detalle vuelve a ser editable, hay que reactivar wf-d3 **con validación de valores (enums)** antes de reintroducir `updateReferral()` — coordinar con el lado n8n.
@@ -76,7 +80,7 @@ El endpoint d1 pagina server-side: acepta `page` (default 1) y `pageSize` (defau
   referralHsId,              // ID interno HubSpot (usado como key de tabla y para routing)
   referral_id,               // ID legible (ej: "REF-0001")
   unique_id,                 // ID único alternativo (viene del detalle, no de la lista)
-  unit,                      // "SP" | "VH"
+  unit,                      // hardcodeado "SP" en el back — NO confiable, no usar para display/filtro
   referral_status,           // "created" | "pending" | "paid"
   referrer_payment_status,   // "pending" | "paid"
   referrer_payment_date,
@@ -87,7 +91,9 @@ El endpoint d1 pagina server-side: acepta `page` (default 1) y `pageSize` (defau
   created_date,
   referrer: { firstname, lastname, referrer_code, total_referrals },
   referido: { firstname, lastname },
-  deal:     { dealname, pipeline, dealstage, real_settlement_date }
+  deal:     { dealname, pipeline, dealstage, real_settlement_date, product_choice }
+  //         product_choice: "Traditional" | "New Build" | "ValueHero" | "IreHero" | null
+  //         → programa (SP/VH/IH) vía productChoiceToProgram() en src/lib/program.js
 }
 ```
 
@@ -108,7 +114,8 @@ El endpoint d1 pagina server-side: acepta `page` (default 1) y `pageSize` (defau
 | Archivo                                 | Descripción                                                   |
 |-----------------------------------------|---------------------------------------------------------------|
 | `src/api/hubspot.js`                    | Todas las llamadas a n8n. Constantes de endpoints.            |
-| `src/lib/referralFilters.js`           | Lógica pura testeada: `filterReferrals`, `filterByPeriod`, `referrerPaymentStatus`, `sortReferrals`, `groupByReferrer` (+ `.test.js`) |
+| `src/lib/referralFilters.js`           | Lógica pura testeada: `filterReferrals` (incl. `programFilter`), `filterByPeriod`, `referrerPaymentStatus`, `sortReferrals`, `groupByReferrer` (+ `.test.js`) |
+| `src/lib/program.js`                   | Mapeo `product_choice` → programa: `productChoiceToProgram()`, `PROGRAMS`, `PROGRAM_LABELS` (fuente única, + `.test.js`) |
 | `src/lib/lastUpdated.js`               | `latestDataUpdate()` / `formatLastUpdated()` — fuente única del "last updated" (dashboard, detalle y reminder) |
 | `src/pages/Dashboard.jsx`              | Lista principal con filtros (incl. Settlement period), KPIs, orden por columna, paginación, botón Export |
 | `src/pages/ReferralDetail.jsx`         | Vista read-only del referral + botón "Mark as paid" (pago manual al referrer) + navegación entre siblings |
@@ -117,6 +124,7 @@ El endpoint d1 pagina server-side: acepta `page` (default 1) y `pageSize` (defau
 | `src/components/GlobalRefreshReminder.jsx` | Monta el reminder a nivel app sólo para usuarios autenticados |
 | `src/components/ExportModal.jsx`       | Modal de exportación Excel con selección de columnas          |
 | `src/components/StatusBadge.jsx`       | Badge de estado (created/paid/pending/applied/ready_to_transfer) |
+| `src/components/ProgramBadge.jsx`      | Chip de programa (SP/VH/IH) derivado de `deal.product_choice`; reusado en lista y detalle |
 | `src/components/KPICard.jsx`           | Tarjeta de métrica en el header del dashboard                 |
 | `src/hooks/useReferrals.js`            | React Query wrapper para la lista                             |
 | `src/hooks/useReferralDetail.js`       | React Query wrapper para el detalle                           |
@@ -132,6 +140,7 @@ El endpoint d1 pagina server-side: acepta `page` (default 1) y `pageSize` (defau
 - **Detalle read-only:** se eliminó el formulario de edición de estados/fechas; el detalle solo muestra datos. La única mutación desde el detalle es **"Mark as paid"** (`MARK_REFERRER_PAID`), que marca el pago manual al referrer. El guard del botón usa `deal.dealstage`/`deal.real_settlement_date` (nuevos campos que ahora trae d2) y el back revalida (422) — ver "Estado actual".
 - **Manejo de errores (`request()` en `hubspot.js`):** ante un response no-ok, parsea el body JSON y prefiere `error`/`message` como mensaje del `ApiError` (así el motivo del 422 de mark-paid llega legible al toast); cae al texto crudo si no es JSON.
 - **"Ready to transfer" es display-only:** `referrerPaymentStatus()` deriva el badge (applied + pago pending → `ready_to_transfer`); el filtro "Referrer payment" y los datos crudos siguen usando `referrer_payment_status` (`pending`). Así no se rompe el filtrado.
+- **Programa desde `deal.product_choice` (no `unit`):** el mapeo a 3 programas (SP/VH/IH) vive en una sola función `productChoiceToProgram()` (`src/lib/program.js`), reusada en lista, detalle y export; `ProgramBadge` centraliza el render del chip. `unit` quedó hardcodeado en SP en el back y se abandonó para display/filtro. El filtro por programa es **client-side** (pill group All/SP/VH/IH en el header → `filterReferrals({ programFilter })`), sin parámetro server-side, consistente con el resto de filtros del Path A bridge. Las KPIs no reaccionan al programa (se calculan sobre el set completo cargado, igual que ignoran los demás filtros). `null`/desconocido → sin etiqueta (no rompe filas viejas sin `product_choice`).
 - **Period filter sobre `deal.real_settlement_date`:** client-side (`filterByPeriod`, semana lun–dom / mes calendario, `now` inyectable para tests). Referrals sin deal o sin settlement date quedan fuera de cualquier período acotado. Depende de que d1 traiga el campo (ya agregado).
 - **"last updated" unificado:** `latestDataUpdate(queryClient)` devuelve el `dataUpdatedAt` más reciente entre `referrals`/`referral`/`kpis` del cache; lo leen el header del dashboard, el del detalle y el reminder → misma hora sin importar desde qué pantalla se refresque. Se eligió esto (vs. el `dataUpdatedAt` de cada query) porque cada pantalla tenía su propia hora.
 - **RefreshReminder global:** montado en `App` (no por página) para que el timer sea continuo entre rutas; guardado por `isAuthenticated` (no aparece en login). 30s de intervalo, 6s visible.

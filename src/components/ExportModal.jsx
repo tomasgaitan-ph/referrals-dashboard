@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import * as XLSX from 'xlsx'
+import { productChoiceToProgram } from '../lib/program'
 
 const EXPORT_COLUMNS = [
   { key: 'referral_id',              label: 'Referral ID',           get: r => r.referral_id ?? '' },
-  { key: 'unit',                     label: 'Program',               get: r => r.unit ?? '' },
+  { key: 'program',                  label: 'Program',               get: r => productChoiceToProgram(r.deal?.product_choice) ?? '' },
   { key: 'referral_status',          label: 'Referral Status',       get: r => r.referral_status ?? '' },
   { key: 'referrer_name',            label: 'Referrer Name',         get: r => [r.referrer?.firstname, r.referrer?.lastname].filter(Boolean).join(' ') || '' },
   { key: 'referrer_code',            label: 'Referrer Code',         get: r => r.referrer?.referrer_code ?? '' },

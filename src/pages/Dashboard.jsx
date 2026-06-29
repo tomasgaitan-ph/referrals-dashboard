@@ -12,6 +12,10 @@ import { useAuth } from '../auth/AuthContext'
 import logo from '../assets/logoph.png'
 import { filterReferrals, filterByPeriod, groupByReferrer, sortReferrals } from '../lib/referralFilters'
 import { latestDataUpdate, formatLastUpdated } from '../lib/lastUpdated'
+import { PROGRAMS } from '../lib/program'
+
+// Programa = segmentación client-side derivada de deal.product_choice. '' = todos.
+const PROGRAM_OPTIONS = [{ value: '', label: 'All' }, ...PROGRAMS.map(p => ({ value: p, label: p }))]
 
 const REFERRAL_STATUS_OPTIONS = [
   { value: '', label: 'Referral status' },
@@ -111,9 +115,9 @@ export default function Dashboard() {
   const queryClient = useQueryClient()
   const { user, logout } = useAuth()
 
-  // Programa fijo en SP — VH discontinuado (jun 2026). Se ocultó el filtro de la UI;
-  // `unit` se mantiene en estado (null = todos, que ahora son SP) por si VH vuelve.
-  const [unit] = useState(null)
+  // Programa (SP/VH/IH): filtro client-side sobre el set cargado, derivado de
+  // deal.product_choice. '' = todos. El pill group del header lo maneja.
+  const [program,        setProgram]        = useState('')
   const [search,         setSearch]         = useState('')
   const [statusFilter,   setStatusFilter]   = useState('')
   const [paymentFilter,  setPaymentFilter]  = useState('')
@@ -132,7 +136,7 @@ export default function Dashboard() {
     isError: referralsError,
     isFetching,
     refetch,
-  } = useReferrals({ unit })
+  } = useReferrals()
 
   // "last updated" único: el fetch más reciente entre lista/detalle/kpis (mismo
   // valor que el header del detalle y el recordatorio).
@@ -142,7 +146,7 @@ export default function Dashboard() {
     data: kpisData,
     isLoading: kpisLoading,
     refetch: refetchKpis,
-  } = useKPIs({ unit })
+  } = useKPIs()
 
   const totalReferrals = referralsData?.referrals?.length ?? null
 
@@ -154,11 +158,11 @@ export default function Dashboard() {
   const filtered = useMemo(
     () => filterByPeriod(
       filterReferrals(referralsData?.referrals ?? [], {
-        search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo,
+        search, programFilter: program, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo,
       }),
       period,
     ),
-    [referralsData, search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo, period]
+    [referralsData, search, program, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo, period]
   )
 
   // Agrupar por referrer: una fila por referrer con su referral más reciente
@@ -167,14 +171,14 @@ export default function Dashboard() {
   // Orden por columna (sobre las filas mostradas)
   const sortedRows = useMemo(() => sortReferrals(displayRows, sort.key, sort.dir), [displayRows, sort])
 
-  // KPI "Pending": referrals en estado 'created' (client-side, sobre el unit cargado)
+  // KPI "Pending": referrals en estado 'created' (client-side, sobre el set cargado)
   const pendingCount = useMemo(
     () => (referralsData?.referrals ?? []).filter(r => r.referral_status === 'created').length,
     [referralsData]
   )
 
   // KPI "Ready to Transfer": pagos al referrer pendientes con el descuento ya
-  // aplicado (client-side, sobre el unit cargado). Cada uno es un pago de €500.
+  // aplicado (client-side, sobre el set cargado). Cada uno es un pago de €500.
   const readyToTransferCount = useMemo(
     () => (referralsData?.referrals ?? []).filter(
       r => r.referrer_payment_status === 'pending' && r.referido_discount_status === 'applied'
@@ -191,7 +195,7 @@ export default function Dashboard() {
       : { key, dir: 'asc' })
   }
 
-  useEffect(() => { setPage(1) }, [search, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo, period, unit, sort])
+  useEffect(() => { setPage(1) }, [search, program, statusFilter, paymentFilter, discountFilter, dateFrom, dateTo, period, sort])
 
   const hasActiveFilters = Boolean(search || statusFilter || paymentFilter || discountFilter || dateFrom || dateTo || period)
 
@@ -225,6 +229,23 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Program selector (filtro client-side sobre la lista cargada) */}
+            <div className="flex items-center gap-0.5 rounded-lg bg-white/10 p-1">
+              {PROGRAM_OPTIONS.map(p => (
+                <button
+                  key={p.value || 'all'}
+                  onClick={() => setProgram(p.value)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
+                    program === p.value
+                      ? 'bg-white text-primary shadow-sm'
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
             {/* Last updated + Refresh */}
             <div className="flex items-center gap-2">
               {lastUpdated > 0 && (

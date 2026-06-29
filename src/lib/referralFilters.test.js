@@ -73,6 +73,48 @@ describe('filterReferrals', () => {
     })
   })
 
+  describe('programFilter (deriva de deal.product_choice)', () => {
+    const withProduct = (id, productChoice) =>
+      ref({ referralHsId: id, deal: { dealname: 'Deal', product_choice: productChoice } })
+    const list = [
+      withProduct('trad', 'Traditional'),
+      withProduct('nb', 'New Build'),
+      withProduct('vh', 'ValueHero'),
+      withProduct('ih', 'IreHero'),
+      withProduct('null', null),
+      ref({ referralHsId: 'sin-deal', deal: null }),
+    ]
+
+    it("'' no filtra (devuelve todo)", () => {
+      expect(filterReferrals(list, { programFilter: '' })).toHaveLength(6)
+    })
+
+    it('SP agrupa Traditional + New Build', () => {
+      expect(filterReferrals(list, { programFilter: 'SP' }).map(r => r.referralHsId)).toEqual(['trad', 'nb'])
+    })
+
+    it('VH = ValueHero', () => {
+      expect(filterReferrals(list, { programFilter: 'VH' }).map(r => r.referralHsId)).toEqual(['vh'])
+    })
+
+    it('IH = IreHero', () => {
+      expect(filterReferrals(list, { programFilter: 'IH' }).map(r => r.referralHsId)).toEqual(['ih'])
+    })
+
+    it('excluye referrals sin product_choice o sin deal al filtrar por programa', () => {
+      const onlyEmpty = [withProduct('null', null), ref({ referralHsId: 'sin-deal', deal: null })]
+      expect(filterReferrals(onlyEmpty, { programFilter: 'SP' })).toEqual([])
+    })
+
+    it('combina con otros filtros (AND)', () => {
+      const mixed = [
+        withProduct('a', 'Traditional'),
+        ref({ referralHsId: 'b', referral_status: 'paid', deal: { dealname: 'D', product_choice: 'Traditional' } }),
+      ]
+      expect(filterReferrals(mixed, { programFilter: 'SP', statusFilter: 'paid' }).map(r => r.referralHsId)).toEqual(['b'])
+    })
+  })
+
   describe('rango de fechas (inclusivo)', () => {
     const list = [
       ref({ referralHsId: '1', created_date: '2026-06-01' }),
@@ -169,6 +211,17 @@ describe('sortReferrals', () => {
     ]
     expect(sortReferrals(list, 'deal', 'asc').map(r => r.referralHsId)).toEqual(['3', '1', '2'])
     expect(sortReferrals(list, 'deal', 'desc').map(r => r.referralHsId)).toEqual(['1', '3', '2'])
+  })
+
+  it("ordena por 'program' derivando de product_choice (vacíos al final)", () => {
+    const list = [
+      ref({ referralHsId: 'vh', deal: { product_choice: 'ValueHero' } }),   // VH
+      ref({ referralHsId: 'sp', deal: { product_choice: 'Traditional' } }), // SP
+      ref({ referralHsId: 'none', deal: { product_choice: null } }),        // null → al final
+      ref({ referralHsId: 'ih', deal: { product_choice: 'IreHero' } }),     // IH
+    ]
+    expect(sortReferrals(list, 'program', 'asc').map(r => r.referralHsId)).toEqual(['ih', 'sp', 'vh', 'none'])
+    expect(sortReferrals(list, 'program', 'desc').map(r => r.referralHsId)).toEqual(['vh', 'sp', 'ih', 'none'])
   })
 
   it('key desconocida devuelve la lista sin cambios', () => {

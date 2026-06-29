@@ -1,9 +1,10 @@
 import StatusBadge from './StatusBadge'
+import ProgramBadge from './ProgramBadge'
 import { referrerPaymentStatus } from '../lib/referralFilters'
 
 const COLUMNS = [
   { key: 'referral_id', label: 'ID',               width: 'w-36' },
-  { key: 'unit',        label: 'Program',           width: 'w-20' },
+  { key: 'program',     label: 'Program',           width: 'w-20' },
   { key: 'referrer',        label: 'Referrer',          width: 'w-40' },
   { key: 'referrer_code',   label: 'Code',              width: 'w-28' },
   { key: 'total_referrals', label: '# Refs',            width: 'w-20' },
@@ -15,10 +16,6 @@ const COLUMNS = [
   { key: 'fecha',       label: 'Date',              width: 'w-28' },
   { key: 'action',      label: '',                  width: 'w-10' },
 ]
-
-const UNIT_CLASSES = {
-  SP: 'bg-blue-50 text-blue-700 border-blue-200',
-}
 
 function formatDate(dateStr) {
   if (!dateStr) return '—'
@@ -117,11 +114,7 @@ export default function ReferralTable({ referrals = [], loading = false, onRowCl
                 {r.referral_id ?? '—'}
               </td>
               <td className="px-4 py-3.5">
-                {r.unit ? (
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold ${UNIT_CLASSES[r.unit] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                    {r.unit}
-                  </span>
-                ) : '—'}
+                <ProgramBadge productChoice={r.deal?.product_choice} />
               </td>
               <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">{fullName(r.referrer)}</td>
               <td className="px-4 py-3.5 font-mono text-xs text-slate-600 whitespace-nowrap">
