@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { productChoiceToProgram, PROGRAMS, PROGRAM_LABELS } from './program'
+import { productChoiceToProgram, PROGRAMS, PROGRAM_LABELS, paymentRequirements, PAYMENT_REQUIREMENTS_FALLBACK } from './program'
 
 describe('productChoiceToProgram', () => {
   it('Traditional y New Build → SP', () => {
@@ -45,5 +45,36 @@ describe('constantes de programa', () => {
     for (const pc of ['Traditional', 'New Build', 'ValueHero', 'IreHero']) {
       expect(PROGRAMS).toContain(productChoiceToProgram(pc))
     }
+  })
+})
+
+describe('paymentRequirements (display de condiciones por programa)', () => {
+  it('SP (Traditional / New Build) → Pre-settlement + Real Settlement Date', () => {
+    const expected = ['Deal in Pre-settlement', 'Real Settlement Date set']
+    expect(paymentRequirements('Traditional')).toEqual(expected)
+    expect(paymentRequirements('New Build')).toEqual(expected)
+  })
+
+  it('VH y IH → Investment Ticket in Closed Won + Real Settlement Date', () => {
+    const expected = ['Investment Ticket in Closed Won', 'Real Settlement Date set']
+    expect(paymentRequirements('ValueHero')).toEqual(expected)
+    expect(paymentRequirements('IreHero')).toEqual(expected)
+  })
+
+  it('los 3 programas incluyen "Real Settlement Date set"', () => {
+    for (const pc of ['Traditional', 'New Build', 'ValueHero', 'IreHero']) {
+      expect(paymentRequirements(pc)).toContain('Real Settlement Date set')
+    }
+  })
+
+  it('null/vacío/desconocido → null (el caller usa el fallback)', () => {
+    expect(paymentRequirements(null)).toBeNull()
+    expect(paymentRequirements('')).toBeNull()
+    expect(paymentRequirements('Whatever')).toBeNull()
+  })
+
+  it('hay un texto de fallback no vacío', () => {
+    expect(typeof PAYMENT_REQUIREMENTS_FALLBACK).toBe('string')
+    expect(PAYMENT_REQUIREMENTS_FALLBACK.length).toBeGreaterThan(0)
   })
 })

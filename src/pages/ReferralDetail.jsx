@@ -5,6 +5,7 @@ import { useReferralDetail } from '../hooks/useReferralDetail'
 import { useReferrals } from '../hooks/useReferrals'
 import { markReferrerPaid } from '../api/hubspot'
 import { referrerPaymentStatus, referrerPaymentButtonState } from '../lib/referralFilters'
+import { paymentRequirements, PAYMENT_REQUIREMENTS_FALLBACK } from '../lib/program'
 import { latestDataUpdate, formatLastUpdated } from '../lib/lastUpdated'
 import logo from '../assets/logoph.png'
 import StatusBadge from '../components/StatusBadge'
@@ -137,6 +138,10 @@ export default function ReferralDetail() {
   const payState = referrerPaymentButtonState(referral, data?.canMarkReferrerPaid)
   const alreadyPaid = payState === 'paid'
   const canMarkPaid = payState === 'available'
+  // Requisitos a mostrar cuando el botón está deshabilitado (display-only, derivado
+  // del programa del deal). Si no hay programa → texto genérico de fallback.
+  const payReqs = paymentRequirements(deal?.product_choice)
+  const payTooltip = payReqs ? `Requires: ${payReqs.join(' · ')}` : PAYMENT_REQUIREMENTS_FALLBACK
 
   const siblings = useMemo(() => {
     if (!referrer?.referrer_code) return []
@@ -298,16 +303,28 @@ export default function ReferralDetail() {
                         Mark the €500 referrer payment as paid once finance has completed the transfer.
                       </p>
                       {!canMarkPaid && (
-                        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-400">
-                          <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" /></svg>
-                          Referrer payment is not available yet.
-                        </p>
+                        <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-400">
+                          <svg className="h-3.5 w-3.5 shrink-0 mt-px" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" /></svg>
+                          <div>
+                            <p>Referrer payment is not available yet.</p>
+                            {payReqs ? (
+                              <>
+                                <p className="mt-1 font-medium text-slate-500">Requirements to enable:</p>
+                                <ul className="mt-0.5 list-disc list-inside space-y-0.5">
+                                  {payReqs.map(req => <li key={req}>{req}</li>)}
+                                </ul>
+                              </>
+                            ) : (
+                              <p className="mt-1">{PAYMENT_REQUIREMENTS_FALLBACK}.</p>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                     <button
                       onClick={() => setConfirmPay(true)}
                       disabled={marking || !canMarkPaid}
-                      title={canMarkPaid ? undefined : 'Referrer payment is not available yet'}
+                      title={canMarkPaid ? undefined : payTooltip}
                       className="shrink-0 flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-white hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
                     >
                       {marking

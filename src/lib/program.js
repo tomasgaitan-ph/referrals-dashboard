@@ -29,3 +29,22 @@ export function productChoiceToProgram(productChoice) {
   if (!productChoice) return null
   return PRODUCT_CHOICE_TO_PROGRAM[productChoice] ?? null
 }
+
+// Requisitos (SOLO display) para habilitar el pago al referrer, por programa. La
+// habilitación REAL la decide el back vía canMarkReferrerPaid; esto sólo le explica
+// al usuario qué condiciones hacen falta. Mantener en sync con la lógica del back.
+export const PROGRAM_PAYMENT_REQUIREMENTS = {
+  SP: ['Deal in Pre-settlement', 'Real Settlement Date set'],
+  VH: ['Investment Ticket in Closed Won', 'Real Settlement Date set'],
+  IH: ['Investment Ticket in Closed Won', 'Real Settlement Date set'],
+}
+
+// Texto genérico cuando no se conoce el programa (deal sin product_choice).
+export const PAYMENT_REQUIREMENTS_FALLBACK = 'Requires the deal to reach its settlement condition'
+
+// Lista de requisitos a mostrar para un product_choice dado, o null si no hay
+// programa (→ usar PAYMENT_REQUIREMENTS_FALLBACK).
+export function paymentRequirements(productChoice) {
+  const program = productChoiceToProgram(productChoice)
+  return program ? PROGRAM_PAYMENT_REQUIREMENTS[program] : null
+}
