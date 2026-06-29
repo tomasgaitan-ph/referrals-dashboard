@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchKPIs } from '../api/hubspot'
 
-export function useKPIs({ unit = null } = {}) {
+export function useKPIs() {
   return useQuery({
-    queryKey: ['kpis', { unit }],
-    queryFn: () => fetchKPIs({ unit }),
+    queryKey: ['kpis'],
+    queryFn: () => fetchKPIs(),
   })
 }

@@ -43,30 +43,32 @@ describe('fetchReferralsList — paginación bridge (Path A)', () => {
 
   it('manda page:1 y pageSize:200 en el body (trae todo en una página)', async () => {
     const { fetchReferralsList } = await loadApi()
-    await fetchReferralsList({ unit: 'SP' })
+    await fetchReferralsList({ status: 'created' })
 
     const { body, options } = firstCall(fetchMock)
     expect(options.method).toBe('POST')
     expect(options.headers['Content-Type']).toBe('application/json')
     expect(body.page).toBe(1)
     expect(body.pageSize).toBe(200)
-    expect(body.unit).toBe('SP')
+    expect(body.status).toBe('created')
+    expect(body).not.toHaveProperty('unit')
   })
 
   it('propaga status/search y usa null por defecto', async () => {
     const { fetchReferralsList } = await loadApi()
-    await fetchReferralsList({ unit: null, status: 'created', search: 'REF-1' })
+    await fetchReferralsList({ status: 'created', search: 'REF-1' })
 
     const { body } = firstCall(fetchMock)
-    expect(body).toMatchObject({ unit: null, status: 'created', search: 'REF-1', page: 1, pageSize: 200 })
+    expect(body).toMatchObject({ status: 'created', search: 'REF-1', page: 1, pageSize: 200 })
+    expect(body).not.toHaveProperty('unit')
   })
 
-  it('sin argumentos manda unit/status/search en null pero mantiene la paginación', async () => {
+  it('sin argumentos manda status/search en null pero mantiene la paginación', async () => {
     const { fetchReferralsList } = await loadApi()
     await fetchReferralsList()
 
     const { body } = firstCall(fetchMock)
-    expect(body).toEqual({ unit: null, status: null, search: null, page: 1, pageSize: 200 })
+    expect(body).toEqual({ status: null, search: null, page: 1, pageSize: 200 })
   })
 })
 
@@ -74,7 +76,7 @@ describe('sufijo de entorno (VITE_N8N_ENV_SUFFIX)', () => {
   it('sufijo vacío → paths dev (sandbox)', async () => {
     const fetchMock = mockFetchOk()
     const { fetchReferralsList } = await loadApi({ suffix: '' })
-    await fetchReferralsList({ unit: 'SP' })
+    await fetchReferralsList()
 
     expect(firstCall(fetchMock).url).toBe(`${BASE_URL}/webhook/dashboard-referrals-list`)
   })
@@ -83,7 +85,7 @@ describe('sufijo de entorno (VITE_N8N_ENV_SUFFIX)', () => {
     const fetchMock = mockFetchOk({})
     const api = await loadApi({ suffix: '-prod' })
 
-    await api.fetchReferralsList({ unit: 'SP' })
+    await api.fetchReferralsList()
     expect(firstCall(fetchMock).url).toBe(`${BASE_URL}/webhook/dashboard-referrals-list-prod`)
 
     fetchMock.mockClear()
@@ -91,7 +93,7 @@ describe('sufijo de entorno (VITE_N8N_ENV_SUFFIX)', () => {
     expect(firstCall(fetchMock).url).toBe(`${BASE_URL}/webhook/dashboard-referral-detail-prod`)
 
     fetchMock.mockClear()
-    await api.fetchKPIs({ unit: 'SP' })
+    await api.fetchKPIs()
     expect(firstCall(fetchMock).url).toBe(`${BASE_URL}/webhook/dashboard-referrals-kpis-prod`)
 
     fetchMock.mockClear()
@@ -135,12 +137,12 @@ describe('auth y manejo de errores', () => {
     const fetchMock = mockFetchOk()
     const { fetchReferralsList, setAuthToken } = await loadApi()
 
-    await fetchReferralsList({ unit: 'SP' })
+    await fetchReferralsList()
     expect(firstCall(fetchMock).options.headers.Authorization).toBeUndefined()
 
     fetchMock.mockClear()
     setAuthToken('id-token-123')
-    await fetchReferralsList({ unit: 'SP' })
+    await fetchReferralsList()
     expect(firstCall(fetchMock).options.headers.Authorization).toBe('Bearer id-token-123')
   })
 
@@ -153,7 +155,7 @@ describe('auth y manejo de errores', () => {
     const onUnauthorized = vi.fn()
     setUnauthorizedHandler(onUnauthorized)
 
-    await expect(fetchReferralsList({ unit: 'SP' })).rejects.toMatchObject({ status: 401 })
+    await expect(fetchReferralsList()).rejects.toMatchObject({ status: 401 })
     expect(onUnauthorized).toHaveBeenCalledOnce()
   })
 
@@ -163,7 +165,7 @@ describe('auth y manejo de errores', () => {
     }))
     const { fetchReferralsList } = await loadApi()
 
-    await expect(fetchReferralsList({ unit: 'SP' })).resolves.toEqual({})
+    await expect(fetchReferralsList()).resolves.toEqual({})
   })
 
   it('un body no-JSON lanza ApiError de respuesta inválida', async () => {
@@ -172,6 +174,6 @@ describe('auth y manejo de errores', () => {
     }))
     const { fetchReferralsList } = await loadApi()
 
-    await expect(fetchReferralsList({ unit: 'SP' })).rejects.toThrow(/Respuesta inválida/)
+    await expect(fetchReferralsList()).rejects.toThrow(/Respuesta inválida/)
   })
 })

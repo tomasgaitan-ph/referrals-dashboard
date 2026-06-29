@@ -83,16 +83,16 @@ async function request(endpoint, body = {}) {
   }
 }
 
-export function fetchReferralsList({ unit = null, status = null, search = null } = {}) {
-  return request(ENDPOINTS.LIST, { unit, status, search, page: LIST_PAGE, pageSize: LIST_PAGE_SIZE })
+export function fetchReferralsList({ status = null, search = null } = {}) {
+  return request(ENDPOINTS.LIST, { status, search, page: LIST_PAGE, pageSize: LIST_PAGE_SIZE })
 }
 
 export function fetchReferralDetail(referralId) {
   return request(ENDPOINTS.DETAIL, { referralId })
 }
 
-export function fetchKPIs({ unit = null } = {}) {
-  return request(ENDPOINTS.KPIS, { unit })
+export function fetchKPIs() {
+  return request(ENDPOINTS.KPIS)
 }
 
 // Marca el pago al referrer como pagado (acción manual desde el detalle). El back
