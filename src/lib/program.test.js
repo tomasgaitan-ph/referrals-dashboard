@@ -37,8 +37,8 @@ describe('constantes de programa', () => {
     expect(PROGRAMS).toEqual(['SP', 'VH', 'IH'])
   })
 
-  it('PROGRAM_LABELS cubre los tres programas', () => {
-    expect(PROGRAM_LABELS).toEqual({ SP: 'SaleProphet', VH: 'ValueHero', IH: 'IreHero' })
+  it('PROGRAM_LABELS = etiqueta de producto por programa (SP muestra ambos)', () => {
+    expect(PROGRAM_LABELS).toEqual({ SP: 'Traditional / New Build', VH: 'ValueHero', IH: 'IreHero' })
   })
 
   it('todo product_choice válido mapea a un programa de PROGRAMS', () => {

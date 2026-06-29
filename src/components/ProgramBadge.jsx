@@ -15,10 +15,10 @@ export default function ProgramBadge({ productChoice }) {
   if (!program) return '—'
   return (
     <span
-      title={PROGRAM_LABELS[program]}
-      className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold ${PROGRAM_BADGE_CLASSES[program]}`}
+      title={program}
+      className={`inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded border text-xs font-semibold ${PROGRAM_BADGE_CLASSES[program]}`}
     >
-      {program}
+      {PROGRAM_LABELS[program]}
     </span>
   )
 }

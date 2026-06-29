@@ -12,10 +12,11 @@ import { useAuth } from '../auth/AuthContext'
 import logo from '../assets/logoph.png'
 import { filterReferrals, filterByPeriod, groupByReferrer, sortReferrals } from '../lib/referralFilters'
 import { latestDataUpdate, formatLastUpdated } from '../lib/lastUpdated'
-import { PROGRAMS } from '../lib/program'
+import { PROGRAMS, PROGRAM_LABELS } from '../lib/program'
 
 // Programa = segmentación client-side derivada de deal.product_choice. '' = todos.
-const PROGRAM_OPTIONS = [{ value: '', label: 'All' }, ...PROGRAMS.map(p => ({ value: p, label: p }))]
+// El pill muestra el nombre del producto (PROGRAM_LABELS), no el código SP/VH/IH.
+const PROGRAM_OPTIONS = [{ value: '', label: 'All' }, ...PROGRAMS.map(p => ({ value: p, label: PROGRAM_LABELS[p] }))]
 
 const REFERRAL_STATUS_OPTIONS = [
   { value: '', label: 'Referral status' },

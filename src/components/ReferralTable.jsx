@@ -4,7 +4,7 @@ import { referrerPaymentStatus } from '../lib/referralFilters'
 
 const COLUMNS = [
   { key: 'referral_id', label: 'ID',               width: 'w-36' },
-  { key: 'program',     label: 'Program',           width: 'w-20' },
+  { key: 'program',     label: 'Program',           width: 'w-44' },
   { key: 'referrer',        label: 'Referrer',          width: 'w-40' },
   { key: 'referrer_code',   label: 'Code',              width: 'w-28' },
   { key: 'total_referrals', label: '# Refs',            width: 'w-20' },

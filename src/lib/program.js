@@ -13,9 +13,12 @@ const PRODUCT_CHOICE_TO_PROGRAM = {
 // sobre la lista ya cargada (no hay parámetro server-side).
 export const PROGRAMS = ['SP', 'VH', 'IH']
 
-// Nombre largo de cada programa (tooltip del badge / referencia).
+// Etiqueta de display del programa = nombre(s) del producto del deal. SP agrupa dos
+// productos (Traditional + New Build) → muestra ambos. Se usa como texto del chip
+// (ProgramBadge) y de las opciones del filtro de programa. En inglés, igual a los
+// valores de product_choice del back.
 export const PROGRAM_LABELS = {
-  SP: 'SaleProphet',
+  SP: 'Traditional / New Build',
   VH: 'ValueHero',
   IH: 'IreHero',
 }
