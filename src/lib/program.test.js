@@ -55,16 +55,17 @@ describe('paymentRequirements (display de condiciones por programa)', () => {
     expect(paymentRequirements('New Build')).toEqual(expected)
   })
 
-  it('VH y IH → Investment Ticket in Closed Won + Real Settlement Date', () => {
-    const expected = ['Investment Ticket in Closed Won', 'Real Settlement Date set']
+  it('VH y IH → solo Investment Ticket in Closed Won (el back NO gatea por Real Settlement Date)', () => {
+    const expected = ['Investment Ticket in Closed Won']
     expect(paymentRequirements('ValueHero')).toEqual(expected)
     expect(paymentRequirements('IreHero')).toEqual(expected)
   })
 
-  it('los 3 programas incluyen "Real Settlement Date set"', () => {
-    for (const pc of ['Traditional', 'New Build', 'ValueHero', 'IreHero']) {
-      expect(paymentRequirements(pc)).toContain('Real Settlement Date set')
-    }
+  it('solo SP exige "Real Settlement Date set"; VH/IH no', () => {
+    expect(paymentRequirements('Traditional')).toContain('Real Settlement Date set')
+    expect(paymentRequirements('New Build')).toContain('Real Settlement Date set')
+    expect(paymentRequirements('ValueHero')).not.toContain('Real Settlement Date set')
+    expect(paymentRequirements('IreHero')).not.toContain('Real Settlement Date set')
   })
 
   it('null/vacío/desconocido → null (el caller usa el fallback)', () => {

@@ -33,10 +33,13 @@ export function productChoiceToProgram(productChoice) {
 // Requisitos (SOLO display) para habilitar el pago al referrer, por programa. La
 // habilitación REAL la decide el back vía canMarkReferrerPaid; esto sólo le explica
 // al usuario qué condiciones hacen falta. Mantener en sync con la lógica del back.
+// Asimetría intencional: SP gatea por Pre-settlement + Real Settlement Date; VH/IH
+// gatean SÓLO por Investment Ticket en Closed Won (el back NO chequea
+// real_settlement_date para VH/IH). No volver a agregar RSD a VH/IH.
 export const PROGRAM_PAYMENT_REQUIREMENTS = {
   SP: ['Deal in Pre-settlement', 'Real Settlement Date set'],
-  VH: ['Investment Ticket in Closed Won', 'Real Settlement Date set'],
-  IH: ['Investment Ticket in Closed Won', 'Real Settlement Date set'],
+  VH: ['Investment Ticket in Closed Won'],
+  IH: ['Investment Ticket in Closed Won'],
 }
 
 // Texto genérico cuando no se conoce el programa (deal sin product_choice).
